@@ -28,32 +28,45 @@
 
 \section{Introduction}
 
-Consider a corpus $\mathcal{C}$ of tokens from a language $\mathcal{T} = \{1,\dotsc,T\}$ (w.l.o.g.) that at the very least ``covers'' $\mathcal{T}$ in the sense that every $t \in \mathcal{T}$ appears in $\mathcal{C}$. By a corpus we basically mean, here, a giant body of text or a ``long'' sequence of elements of $\mathcal{T}$. Can we compute the empirical distribution of next tokens for some batch size $B$? Let's define what we mean clearly: we want to estimate
+Consider a corpus $\mathcal{C}$ of tokens from a language $\mathcal{T} = \{1,\dotsc,T\}$ (w.l.o.g.) that at the very least ``covers'' $\mathcal{T}$ in the sense that every $t \in \mathcal{T}$ appears in $\mathcal{C}$. By a corpus we basically mean, here, a giant body of text or a ``long'' sequence of elements of $\mathcal{T}$. Can we compute the empirical distribution of next tokens for some batch size $B$? Let's define what we mean clearly: we want to estimate the conditional probabilities
 \begin{equation*}
 	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_1, \dotsc , t_B \; )
 \end{equation*}
-empirically via {\em something} like
+with ``(Conditional) Empiricial Frequencies'' or (C)EFs. 
+
+Before detailing how, why would we do such a thing? A plausible ``hypothesis'' is that these probabilities are what LLMs like GPT are fundamentally modeling. Any functional representation, such as a variant of multiclass logit regression or the deep networks in modern LLMs, impose structure on sequential predictions. Yet it is possible that (a) for ``small'' data volumes such structure exists to ``smooth'' gaps in knowledge of some ``true'' conditional probabilities, while (b) as the training corpus size grows the model (if from a suitably ``universal'' class) will increasingly tend to the empirical conditional probabilities and effectively ``regurgitate'' patterns from its training data. Formally of course there are some statistical assumptions (consistency, unbiasedness) hiding here that we'll ignore. 
+
+This idea -- that the best a LLM could do is defined by the (C)EFs -- has implications for conceptualizing what LLMs are. First, should this hypothesis be correct, it is a formal, almost philosophical illustration of how it is impossible for LLMs to be generatively ``innovative''. In a strict sense they can only repeat the patterns of the past, as described by the (C)EFs in the training data. Which is not to say they are not still {\em useful}, by any means; though we should still be able to reflect on the limitations of such tools. Second, if complex structure aims at universality, and there is enough data to faithfully represent the (C)EFs, then the complex structure has to {\em compress} the (C)EFs. In slightly plainer words: as we increase the volume of data used to train a LLM from a reasonably ``universal''  class, either training of the LLM parameters must be vastly simpler than computing the (C)EFs directly or sampling sequences from the LLM must be vastly simpler than from the (C)EFs (or both) for the LLM to be ``effective''. Something like GPT-3 is hardly ``parsimonious'' being based on over 175 {\em billion} parameters, with larger models in the works (if not already extant), and generative sampling requiring complex distributed computing on specialized hardware. 
+
+At least to me, it is not entirely clear that (C)EFs are ``efficiently'' computable (in, so to speak, ``training''), or sampling from them is efficient, or, most importantly, if samples from (C)EFs appear to mimic ``real'' language structure like LLMs do (as defined in the training corpus). Here we'll focus on those questions. What datastructure models (C)EFs? How would we (efficiently, scaleably) compute them from a corpus? How would we generate sequences? 
+
+\section{Modeling}
+
+Again we want to estimate the (C)EFs of
+\begin{equation*}
+	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_1, \dotsc , t_B \; )
+\end{equation*}
+This is probably to be done via something like
 \begin{equation*}
 	\hat{\rho}_B(\mathbf{t},\tau) 
-		= \frac{ | \{ (\mathbf{t}, \tau) \subset \mathcal{C} : |\mathbf{t}| = B \} | }
-			{ | \{ \mathbf{t} \subset \mathcal{C} : |\mathbf{t}| = B \} | }
+		= \frac{ \#\text{ of occurrences of }\mathbf{t} \circ \tau\text{ in }\mathcal{C} }
+			{ \#\text{ of occurrences of }\mathbf{t}\text{ in }\mathcal{C} }
 \end{equation*}
+where $\circ$ is concatenation. Why {\em something like}? The question would be whether {\em exactly} this empirical value would be {\em generative} without an underlying structural model. Simply, suppose we have some $\mathbf{t}$, we generate a next $\tau$, but such that $(t_2,\dotsc,t_B,\tau)$ is not in $\mathcal{C}$. Strictly speaking, we can't then use literal $B$-prefix conditional empirical distributions as they would not tell us what comes next. However we'll stick to the naivest possible calculation, and outline a well-defined sampling process below. 
 
-Why {\em something} like? The question would be whether {\em exactly} this empirical value would be {\em generative} without an underlying structural model. Simply, suppose we have some $\mathbf{t}$, we generate a next $\tau$, but such that $(t_2,\dotsc,t_B,\tau)$ is not in $\mathcal{C}$. Strictly speaking, we can't then use literal empirical distributions as they would not tell us what comes next, at least as a $B$ sequence. (We might need to cascade downward in sequence size, meaning find the largest $0 < B^\prime = B-h < B$ such that $(t_h,\dotsc,t_B,\tau)$ can be generative from $\mathcal{C}$; simple occurrence is always defined, so we can do this.) 
-
-Clearly $\rho_{B-1}(\mathbf{t}, \tau)$ is a {\em marginal} relative to $\rho_B(\mathbf{t}, \tau)$, because $\rho_B$ is more specific than $\rho_{B-1}$:
+Clearly $\rho_{B-1}(\mathbf{t}, \tau)$ is a {\em marginal} relative to $\rho_B(\mathbf{t}, \tau)$, because $\rho_B$ is more specific than $\rho_{B-1}$. That is, 
 \begin{equation*}
 	\rho_{B-1}(\mathbf{t}, \tau) 
 		= \mathbb{P}(\; t_{B} = \tau \; | \; t_1, \dotsc , t_{B-1} \; )
 		= \sum_t \rho_{0}(t) \rho_B\big( t \circ \mathbf{t}, \tau\big)
 \end{equation*}
-where $\circ$ is a concatenation operator and $\rho_{0}(t) = \mathbb{P}(T = t)$. Also
+where $\rho_{0}(t) = \mathbb{P}(T = t)$. Also
 \begin{equation*}
 	\hat{\rho}_{0}(\tau) = \frac{\#\text{ of occurrences of }\tau\text{ in }\mathcal{C}}{|\mathcal{C}|}
 \end{equation*}
-which we are assured is defined and positive. 
+which we are assured is defined and positive (because the corpus covers the token language). 
 
-So how would we compute $\hat{\rho}_B$? To start, we can do this in a single pass over $\mathcal{C}$ as follows: 
+So how would we compute $\hat{\rho}_B$? To sketch a start, we can do this in a single pass over $\mathcal{C}$ as follows: 
 \begin{itemize}
 	\item[(0)] Initialize a hashmap $\mathcal{P}_B$ whose keys are $B$-token strings and values are also hashmaps with single-token keys and whose values are floats (technically \texttt{doubles}). We will store $\hat{\rho}_B(\mathbf{t},\tau) = \mathcal{P}_B[\mathbf{t}][\tau]$. Initialize $c = B$. 
 	\item[(1)] Set $\mathbf{t} = \mathcal{C}[c-B:c)$, $\tau = \mathcal{C}[c]$
@@ -83,5 +96,13 @@ Prediction actually means a $\mathcal{T}$-set of suffix trees may be more suitab
 	t_{|\mathbf{t}|} \rightarrow t_{|\mathbf{t}|-1} \circ t_{|\mathbf{t}|} \rightarrow \dotsb
 \end{equation*}
 from a (guaranteed-to-exist) root $t_{|\mathbf{t}|}$ to the deepest accessible node. This could also aid in the ``marginalization'' process. Each node would contain  a hashmap representing the distribution over next most likely tokens. 
+
+\section{A Simple Example}
+
+
+\section{Scaling}
+
+
+
 
 \end{document}
