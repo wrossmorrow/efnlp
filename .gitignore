@@ -1,0 +1,9 @@
+.ipynb*
+__pycache__
+/*.csv
+*egg*
+/dist
+/build
+
+.mypy_cache
+.pytest_cache
