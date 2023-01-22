@@ -8,6 +8,7 @@ alias u := update
 alias f := format
 alias l := lint
 alias t := unit-test
+alias r := run
 alias b := build
 # alias p := publish
 
@@ -33,9 +34,6 @@ lint:
     poetry run black {{name}} test --check --exclude env
     poetry run flake8 {{name}} test
     poetry run mypy {{name}} test
-    
-examples:
-    poetry run bash ./examples.sh
 
 # run all unit tests
 unit-test *flags:
@@ -57,6 +55,10 @@ integration-test *flags:
         test/integration \
         --disable-warnings \
         {{flags}}
+
+# run CLI
+run *flags:
+    python -m efnlp {{flags}}
 
 # build package
 build: 

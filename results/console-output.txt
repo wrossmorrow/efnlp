@@ -1,0 +1,141 @@
+$ bash scripts/fakespeare.sh 
+
+B = 1
+[2023-01-22T09:38:25.353646 | 0.000013s] Reading text corpus
+[2023-01-22T09:38:25.354533 | 0.000896s] Forming (character) language
+[2023-01-22T09:38:25.395774 | 0.042144s] Encoding corpus in the language constructed
+[2023-01-22T09:38:25.461231 | 0.107601s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:38:25.461274 | 0.107635s] Parsing prefix/successor tokens
+[2023-01-22T09:38:26.485621 | 1.131990s] Parsed prefixes and successors in corpus
+[2023-01-22T09:38:26.485735 | 1.132097s] Found 65 prefixes (0.0% of possible)
+[2023-01-22T09:38:26.491330 | 1.137694s] Found 1,403 patterns (0.1% of possible)
+[2023-01-22T09:38:26.491347 | 1.137708s] Normalizing to empirical frequencies
+[2023-01-22T09:38:26.492045 | 1.138407s] Memory (roughly) required: 0.0214 MB (about 2,806 dbl, 5,612 fl)
+[2023-01-22T09:38:26.492057 | 1.138418s] Sampling and decoding 10000 tokens
+[2023-01-22T09:38:26.523554 | 1.169923s] Writing sampled results to results/1.txt
+
+B = 2
+[2023-01-22T10:01:33.504335 | 0.000016s] Reading text corpus
+[2023-01-22T10:01:33.506322 | 0.002000s] Forming (character) language
+[2023-01-22T10:01:33.549388 | 0.045070s] Encoding corpus in the language constructed
+[2023-01-22T10:01:33.615189 | 0.110896s] Corpus is 1,115,393 tokens long
+[2023-01-22T10:01:33.615261 | 0.110934s] Parsing prefix/successor tokens
+[2023-01-22T10:01:35.501596 | 1.997276s] Parsed prefixes and successors in corpus
+[2023-01-22T10:01:35.502435 | 1.998109s] Found 1,403 prefixes (0.1% of possible)
+[2023-01-22T10:01:35.511862 | 2.007542s] Found 11,556 patterns (1.0% of possible)
+[2023-01-22T10:01:35.511889 | 2.007563s] Normalizing to empirical frequencies
+[2023-01-22T10:01:35.520609 | 2.016285s] Memory (roughly) required: 0.198 MB (about 25,918 dbl, 51,836 fl)
+[2023-01-22T10:01:35.520627 | 2.016300s] Sampling and decoding 10000 tokens
+[2023-01-22T10:01:35.556620 | 2.052300s] Writing sampled results to results/2.txt
+
+B = 3
+[2023-01-22T09:38:26.636539 | 0.000019s] Reading text corpus
+[2023-01-22T09:38:26.637606 | 0.001080s] Forming (character) language
+[2023-01-22T09:38:26.684457 | 0.047938s] Encoding corpus in the language constructed
+[2023-01-22T09:38:26.755967 | 0.119444s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:38:26.755998 | 0.119469s] Parsing prefix/successor tokens
+[2023-01-22T09:38:29.743453 | 3.106948s] Parsed prefixes and successors in corpus
+[2023-01-22T09:38:29.759241 | 3.122722s] Found 11,556 prefixes (1.0% of possible)
+[2023-01-22T09:38:29.873980 | 3.237464s] Found 50,712 patterns (4.5% of possible)
+[2023-01-22T09:38:29.874027 | 3.237500s] Normalizing to empirical frequencies
+[2023-01-22T09:38:29.960752 | 3.324254s] Memory (roughly) required: 0.972 MB (about 127,342 dbl, 254,684 fl)
+[2023-01-22T09:38:29.960884 | 3.324358s] Sampling and decoding 10000 tokens
+[2023-01-22T09:38:30.023940 | 3.387421s] Writing sampled results to results/3.txt
+
+B = 4
+[2023-01-22T10:01:35.682242 | 0.000028s] Reading text corpus
+[2023-01-22T10:01:35.684168 | 0.001950s] Forming (character) language
+[2023-01-22T10:01:35.733322 | 0.051102s] Encoding corpus in the language constructed
+[2023-01-22T10:01:35.804878 | 0.122657s] Corpus is 1,115,393 tokens long
+[2023-01-22T10:01:35.804915 | 0.122688s] Parsing prefix/successor tokens
+[2023-01-22T10:01:40.620754 | 4.938533s] Parsed prefixes and successors in corpus
+[2023-01-22T10:01:40.687920 | 5.005701s] Found 50,712 prefixes (4.5% of possible)
+[2023-01-22T10:01:41.082375 | 5.400157s] Found 141,021 patterns (12.6% of possible)
+[2023-01-22T10:01:41.082411 | 5.400184s] Normalizing to empirical frequencies
+[2023-01-22T10:01:41.343935 | 5.661715s] Memory (roughly) required: 3.12 MB (about 409,384 dbl, 818,768 fl)
+[2023-01-22T10:01:41.343970 | 5.661744s] Sampling and decoding 10000 tokens
+[2023-01-22T10:01:41.396373 | 5.714156s] Writing sampled results to results/4.txt
+
+B = 5
+[2023-01-22T09:38:30.230633 | 0.000046s] Reading text corpus
+[2023-01-22T09:38:30.231643 | 0.001050s] Forming (character) language
+[2023-01-22T09:38:30.276317 | 0.045728s] Encoding corpus in the language constructed
+[2023-01-22T09:38:30.343647 | 0.113060s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:38:30.343683 | 0.113089s] Parsing prefix/successor tokens
+[2023-01-22T09:38:37.445991 | 7.215407s] Parsed prefixes and successors in corpus
+[2023-01-22T09:38:37.950375 | 7.719788s] Found 141,021 prefixes (12.6% of possible)
+[2023-01-22T09:38:38.759253 | 8.528668s] Found 283,313 patterns (25.4% of possible)
+[2023-01-22T09:38:38.759290 | 8.528696s] Normalizing to empirical frequencies
+[2023-01-22T09:38:39.496680 | 9.266095s] Memory (roughly) required: 7.45 MB (about 976,010 dbl, 1,952,020 fl)
+[2023-01-22T09:38:39.496722 | 9.266128s] Sampling and decoding 10000 tokens
+[2023-01-22T09:38:39.557385 | 9.326799s] Writing sampled results to results/5.txt
+
+B = 7
+[2023-01-22T10:01:42.098642 | 0.000015s] Reading text corpus
+[2023-01-22T10:01:42.099542 | 0.000911s] Forming (character) language
+[2023-01-22T10:01:42.140144 | 0.041517s] Encoding corpus in the language constructed
+[2023-01-22T10:01:42.208769 | 0.110143s] Corpus is 1,115,393 tokens long
+[2023-01-22T10:01:42.208808 | 0.110174s] Parsing prefix/successor tokens
+[2023-01-22T10:01:57.938375 | 15.839752s] Parsed prefixes and successors in corpus
+[2023-01-22T10:01:59.190260 | 17.091635s] Found 447,352 prefixes (40.1% of possible)
+[2023-01-22T10:02:02.315474 | 20.216850s] Found 609,659 patterns (54.7% of possible)
+[2023-01-22T10:02:02.315511 | 20.216878s] Normalizing to empirical frequencies
+[2023-01-22T10:02:05.386105 | 23.287481s] Memory (roughly) required: 23.6 MB (about 3,090,032 dbl, 6,180,064 fl)
+[2023-01-22T10:02:05.386148 | 23.287516s] Sampling and decoding 10000 tokens
+[2023-01-22T10:02:05.479583 | 23.380963s] Writing sampled results to results/7.txt
+
+B = 10
+[2023-01-22T09:38:41.577716 | 0.000015s] Reading text corpus
+[2023-01-22T09:38:41.578683 | 0.000977s] Forming (character) language
+[2023-01-22T09:38:41.622383 | 0.044683s] Encoding corpus in the language constructed
+[2023-01-22T09:38:41.695248 | 0.117548s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:38:41.695284 | 0.117576s] Parsing prefix/successor tokens
+[2023-01-22T09:39:17.275189 | 35.697492s] Parsed prefixes and successors in corpus
+[2023-01-22T09:39:21.175836 | 39.598138s] Found 858,920 prefixes (77.0% of possible)
+[2023-01-22T09:39:30.175582 | 48.597884s] Found 937,254 patterns (84.0% of possible)
+[2023-01-22T09:39:30.175621 | 48.597913s] Normalizing to empirical frequencies
+[2023-01-22T09:39:39.596783 | 58.019084s] Memory (roughly) required: 62.4 MB (about 8,183,314 dbl, 16,366,628 fl)
+[2023-01-22T09:39:39.596822 | 58.019115s] Sampling and decoding 10000 tokens
+[2023-01-22T09:39:39.698567 | 58.120867s] Writing sampled results to results/10.txt
+
+B = 12
+[2023-01-22T10:02:14.087875 | 0.000014s] Reading text corpus
+[2023-01-22T10:02:14.088788 | 0.000923s] Forming (character) language
+[2023-01-22T10:02:14.135048 | 0.047188s] Encoding corpus in the language constructed
+[2023-01-22T10:02:14.205895 | 0.118038s] Corpus is 1,115,393 tokens long
+[2023-01-22T10:02:14.205934 | 0.118068s] Parsing prefix/successor tokens
+[2023-01-22T10:03:04.773520 | 50.685664s] Parsed prefixes and successors in corpus
+[2023-01-22T10:03:10.885963 | 56.798106s] Found 991,391 prefixes (88.9% of possible)
+[2023-01-22T10:03:24.546183 | 70.458328s] Found 1,027,857 patterns (92.2% of possible)
+[2023-01-22T10:03:24.546223 | 70.458357s] Normalizing to empirical frequencies
+[2023-01-22T10:03:39.489571 | 85.401712s] Memory (roughly) required: 93.2 MB (about 12,221,812 dbl, 24,443,624 fl)
+[2023-01-22T10:03:39.489608 | 85.401742s] Sampling and decoding 10000 tokens
+[2023-01-22T10:03:39.608615 | 85.520755s] Writing sampled results to results/12.txt
+
+B = 15
+[2023-01-22T09:40:07.000922 | 0.000015s] Reading text corpus
+[2023-01-22T09:40:07.001838 | 0.000927s] Forming (character) language
+[2023-01-22T09:40:07.046400 | 0.045496s] Encoding corpus in the language constructed
+[2023-01-22T09:40:07.122900 | 0.121996s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:40:07.122943 | 0.122030s] Parsing prefix/successor tokens
+[2023-01-22T09:41:21.164433 | 74.163530s] Parsed prefixes and successors in corpus
+[2023-01-22T09:41:32.122537 | 85.121636s] Found 1,069,423 prefixes (95.9% of possible)
+[2023-01-22T09:41:53.420982 | 106.420080s] Found 1,081,060 patterns (96.9% of possible)
+[2023-01-22T09:41:53.421022 | 106.420109s] Normalizing to empirical frequencies
+[2023-01-22T09:42:18.059330 | 131.058427s] Memory (roughly) required: 1.42e+02 MB (about 18,627,718 dbl, 37,255,436 fl)
+[2023-01-22T09:42:18.059374 | 131.058462s] Sampling and decoding 10000 tokens
+[2023-01-22T09:42:18.355680 | 131.354778s] Writing sampled results to results/15.txt
+
+B = 20
+[2023-01-22T09:43:27.276732 | 0.000017s] Reading text corpus
+[2023-01-22T09:43:27.278361 | 0.001642s] Forming (character) language
+[2023-01-22T09:43:27.321275 | 0.044561s] Encoding corpus in the language constructed
+[2023-01-22T09:43:27.386961 | 0.110247s] Corpus is 1,115,393 tokens long
+[2023-01-22T09:43:27.387000 | 0.110278s] Parsing prefix/successor tokens
+[2023-01-22T09:45:51.572005 | 144.296340s] Parsed prefixes and successors in corpus
+[2023-01-22T09:48:22.546651 | 295.270023s] Found 1,103,358 prefixes (98.9% of possible)
+[2023-01-22T09:49:15.862356 | 348.585716s] Found 1,106,345 patterns (99.2% of possible)
+[2023-01-22T09:49:15.863136 | 348.586419s] Normalizing to empirical frequencies
+[2023-01-22T09:51:44.889630 | 497.613434s] Memory (roughly) required: 2.26e+02 MB (about 29,615,414 dbl, 59,230,828 fl)
+[2023-01-22T09:51:44.891230 | 497.614512s] Sampling and decoding 10000 tokens
+[2023-01-22T09:51:46.276843 | 499.000134s] Writing sampled results to results/20.txt

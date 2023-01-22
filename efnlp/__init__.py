@@ -47,21 +47,27 @@ class SuffixTree:
     def __getitem__(self, token: int) -> SuffixTree:
         return self.children[token]
 
-    def __setitem__(self, token: int, value: SuffixTree) -> SuffixTree:
-        self.children[token] = value
+    def __setitem__(self, token: int, child: SuffixTree) -> SuffixTree:
+        self.children[token] = child
         return self
 
-    def __call__(self, seq: List[int]) -> float:
-        return 0.0
+    def __call__(self, prefix: List[int]) -> float:
+        """Convenience for sampling."""
+        return self.sample(prefix)
 
     def get(self, token: int) -> Optional[SuffixTree]:
+        """Return the child with given token, or None."""
         return self.children.get(token)
 
     def add(self, child: SuffixTree) -> SuffixTree:
+        """Add a "child" token in the children map (though "children"
+        is a bit misleading in context). Chainable."""
         self.children[child.token] = child
         return self
 
     def parse(self, prefix: List[int], token: int) -> SuffixTree:
+        """Parse a prefix into this SuffixTree, including the successor
+        token. Chainable."""
 
         if token in self.nexts:
             self.nexts[token].increment()
@@ -77,15 +83,28 @@ class SuffixTree:
 
         return self
 
+    def merge(self, other: SuffixTree) -> SuffixTree:
+        """Merge another SuffixTree into this one"""
+        assert self.token == other.token
+        # merge overall target tokens and counts
+        # then merge matching children
+        return self
+
     def memory(self) -> int:
+        """Return an estimate of the memory requirements for this tree"""
         return 16 * len(self.nexts) + sum([c.memory() for _, c in self.children.items()])
 
     def prefixes(self) -> List[List[int]]:
+        """List all prefixes held in this SuffixTree. These are
+        basically the set of paths to leaf nodes from this node."""
         if len(self.children) == 0:
             return [[self.token]]
         return [(p + [self.token]) for _, c in self.children.items() for p in c.prefixes()]
 
     def patterns(self) -> List[Tuple[List[int], int]]:
+        """List all "patterns" held in this SuffixTree. These are
+        basically the set of paths to leaf nodes from this node,
+        along with any successor tokens."""
         if len(self.children) == 0:
             return [([self.token], t) for t in self.nexts]
         return [
@@ -93,18 +112,38 @@ class SuffixTree:
         ]
 
     def search(self, prefix: List[int]) -> List[int]:
+        """Search for a given prefix in this tree. Returns
+        the longest match."""
         if len(prefix) == 0:
             return [self.token]
         C = self.get(prefix[-1])
-        return (C.search(prefix[:-1]) + [prefix[-1]]) if C is not None else [self.token]
+        if C is None:
+            return [self.token]
+        return C.search(prefix[:-1]) + [self.token]
+
+    def match(self, prefix: List[int]) -> bool:
+        """Return true if the presented prefix is in the suffix tree"""
+        if len(prefix) == 0:
+            raise ValueError("can't match the empty token string")
+
+        C = self.get(prefix[-1])
+        if C is None:
+            return False
+
+        if len(prefix) == 1:
+            return True
+
+        return C.match(prefix[:-1])
 
     def normalize(self) -> SuffixTree:
+        """Construct probabilities, recursively. Chainable."""
         self._normalize()
         for _, c in self.children.items():
             c.normalize()
         return self
 
     def _normalize(self) -> None:
+        """Internal: construct probabilities for this node only."""
         s = 0
         for _, t in self.nexts.items():
             s += t.count
@@ -116,11 +155,17 @@ class SuffixTree:
         )
 
     def sample(self, prefix: List[int]) -> int:
-        if len(prefix) == 0 or prefix[-1] not in self:  # sample from children?
+        """Sample a token that likely follows a prefix. Requires
+        a normalized tree for now. Recurses to search for the
+        longest matching suffix for the prefix."""
+        if len(prefix) == 0 or prefix[-1] not in self:
             return choices(self.sampler[0], weights=self.sampler[1], k=1)[0]
         return self[prefix[-1]].sample(prefix[:-1])
 
     def empfreq(self, prefix: List[int]) -> Tuple[List[int], List[float]]:
+        """Return emperical frequencies. Equivalent to sampling
+        in structure, except that we don't sample, we return the
+        successor tokens and their probabilities."""
         if len(prefix) == 0 or prefix[-1] not in self:  # sample from children?
             return self.sampler[0], self.sampler[1]
         return self[prefix[-1]].empfreq(prefix[:-1])
@@ -129,7 +174,7 @@ class SuffixTree:
 @dataclass
 class SuffixTreeSet:
 
-    size: int
+    size: int  # "vocab" size
     trees: List[SuffixTree] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -141,6 +186,12 @@ class SuffixTreeSet:
     def parse(self, prefix: List[int], target: int) -> SuffixTreeSet:
         if len(prefix) > 0:
             self.trees[prefix[-1]].parse(prefix[:-1], target)
+        return self
+
+    def merge(self, other: SuffixTreeSet) -> SuffixTreeSet:
+        assert self.size == other.size
+        for i in range(self.size):
+            self.trees[i].merge(other.trees[i])
         return self
 
     def memory(self) -> int:
@@ -167,6 +218,11 @@ class SuffixTreeSet:
             raise ValueError("can't search the empty token string")
         return self.trees[prefix[-1]].search(prefix[:-1])
 
+    def match(self, prefix: List[int]) -> bool:
+        if len(prefix) == 0:
+            raise ValueError("can't match the empty token string")
+        return self.trees[prefix[-1]].match(prefix[:-1])
+
     def normalize(self) -> SuffixTreeSet:
         for t in self.trees:
             t.normalize()
@@ -181,6 +237,13 @@ class SuffixTreeSet:
         if len(prefix) == 0:  # sample from token marginals?
             return [], []
         return self.trees[prefix[-1]].empfreq(prefix[:-1])
+
+    def generate(self, size: int, window: int, prompt: List[int]) -> List[int]:
+        code = prompt
+        for i in range(size):
+            prefix = code if len(code) < window else code[-window:]
+            code.append(self.sample(prefix))
+        return code
 
 
 @dataclass

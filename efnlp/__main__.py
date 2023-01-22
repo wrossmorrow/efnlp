@@ -97,21 +97,38 @@ def cli() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def since(started: dt) -> float:
+    return (dt.now()-started).total_seconds()
+
+
+class TimedPrinter:
+
+    def __init__(self) -> None:
+        self._started = dt.now()
+
+    def __call__(self, msg: str) -> None:
+        print(f"[{dt.now().isoformat()} | {since(self._started):.6f}s] {msg}")
+
 if __name__ == "__main__":
 
     args = cli()
+
+    _print = TimedPrinter()
+
+    if args.verbose:
+        _print("Reading text corpus")
 
     data: str
     with open(args.corpus, "r") as f:
         data = f.read()
 
     if args.verbose:
-        print(f"[{dt.now().isoformat()}] Forming (character) language")
+        _print(f"Forming (character) language")
 
     L = CharLanguage.from_corpus(data)
 
     if args.verbose:
-        print(f"[{dt.now().isoformat()}] Encoding corpus")
+        _print(f"Encoding corpus in the language constructed")
 
     C = L.encode(data)
 
@@ -120,21 +137,29 @@ if __name__ == "__main__":
     G = args.generate
 
     if args.verbose:
-        print(f"[{dt.now().isoformat()}] Corpus is {N:,} tokens long")
+        _print(f"Corpus is {N:,} tokens long")
 
     # split
     Sp = int(args.split * N)
     Ct, Cv = (C[:Sp], C[(Sp - B - 1) :]) if args.split < 1.0 else (C, [])
 
     if args.verbose:
-        print(f"[{dt.now().isoformat()}] Parsing prefix/follower tokens")
+        _print(f"Parsing prefix/successor tokens")
 
     S = SuffixTreeSet(L.size)
     for i in range(B, N - 1):
         S.parse(C[i - B : i], C[i])
 
     if args.verbose:
-        print(f"[{dt.now().isoformat()}] Normalizing to empirical frequencies")
+        _print(f"Parsed prefixes and successors in corpus")
+        prefix_count = len(S.prefixes())
+        pop = 100.0 * prefix_count / (N-B-1) # exclude last element
+        _print(f"Found {prefix_count:,} prefixes ({pop:.1f}% of possible)")
+        pattern_count = len(S.patterns())
+        pop = 100.0 * pattern_count / (N-B-1) # exclude last element
+        _print(f"Found {pattern_count:,} patterns ({pop:.1f}% of possible)")
+
+        _print(f"Normalizing to empirical frequencies")
 
     S.normalize()
 
@@ -143,8 +168,8 @@ if __name__ == "__main__":
         mem_mb = mem / 1024 / 1024
         mem_d = int(mem / 8)
         mem_f = int(mem / 4)
-        print(
-            f"[{dt.now().isoformat()}] Memory (roughly) required: {mem_mb:.3} "
+        _print(
+            f"Memory (roughly) required: {mem_mb:.3} "
             f"MB (about {mem_d:,} dbl, {mem_f:,} fl)"
         )
 
@@ -160,27 +185,23 @@ if __name__ == "__main__":
 
         hr /= N - Sp - 1
         if args.verbose:
-            print(
-                f"[{dt.now().isoformat()}] Hit rate on last {N-Sp-1:,} elements "
+            _print(
+                f"Hit rate on last {N-Sp-1:,} elements "
                 f"({100*args.split:.3}%) of the corpus: {100*hr:.2}"
             )
 
     if G > 0:
 
         if args.verbose:
-            print(f"[{dt.now().isoformat()}] Sampling and decoding {G} tokens")
+            _print(f"Sampling and decoding {G} tokens")
 
-        code = L.encode(args.prompt)
-        shake = L.decode(code)
-        for i in range(G):
-            prefix = code if len(code) < B else code[-B:]
-            code.append(S.sample(prefix))
-            shake += L.decode(code[-1])
+        shake = L.decode(S.generate(G, B, L.encode(args.prompt)))
 
         if args.output:
             if args.verbose:
-                print(f"[{dt.now().isoformat()}] Writing sampled results to {args.output}")
+                _print(f"Writing sampled results to {args.output}")
             with open(args.output, "w") as f:
                 f.write(shake)
         else:
+            _print(f"Results: ")
             print(shake)
