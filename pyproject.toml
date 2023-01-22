@@ -1,0 +1,33 @@
+[tool.black]
+line-length = 99
+target-version = ['py39']
+
+[tool.poetry]
+name = "efnlp"
+version = "0.1.0"
+description = "Empirical Frequency Natural Language Processing"
+readme = "README.md"
+packages = [{ include = "efnlp" }]
+authors = ["W. Ross Morrow <morrowwr@gmail.com>"]
+
+[[tool.poetry.source]]
+name = 'default'
+url = 'https://pypi.python.org/simple'
+default = true
+
+[tool.poetry.dependencies]
+python  = "^3.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+black = "^22.6.0"
+flake8 = "^4.0.1"
+
+mypy = "^0.971"
+# TODO: this is a very loose setting, would be better to target
+[tool.mypy]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
