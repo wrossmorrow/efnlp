@@ -214,6 +214,17 @@ public:
 
     CharLanguage(ifstream * in) { _read(in); }
 
+    CharLanguage(const efnlp::PROTO_VERSION::Language * L) {
+        size = L->lang_size();
+        for( auto i = 0 ; i < L->lang_size() ; i++ ) {
+            auto enc = L->lang(i);
+            auto t = enc.token();
+            auto v = enc.data()[0]; // TODO: can't be "stable"
+            stot[v] = t;
+            ttos[t] = v;
+        }
+    }
+
     ~CharLanguage() {} // do we need to delete maps? or handled... 
 
     // C++ does not resolve overloaded methods with inheritance; if we
@@ -351,7 +362,7 @@ public:
 
     int length() { return N; }
 
-    TokenType& operator[](size_t i) { 
+    TokenType& operator[](int i) { 
         if( i >= N ) { 
             throw invalid_argument(
                 ErrFmt() << "Index " << i << " out of bounds for " << N
@@ -367,7 +378,7 @@ class Prefix {
     TokenString * d;
 
 public:
-    Prefix(TokenString * d, int N, int s) : d(d), N(N), s(s) {
+    Prefix(TokenString * d, int N, int s) : N(N), s(s), d(d) { // NOTE: ordering avoids warning
         e = s + N; // e >= s
         if( e >= d->length() ) {
             throw invalid_argument("Window too large for data");
@@ -471,6 +482,17 @@ class Sampler {
 
 public: 
     Sampler() : total(0) {};
+    Sampler(const efnlp::PROTO_VERSION::Sampler * S) {
+        total = 1.0f; // TODO: abstracted type safe?
+        counts.reserve(S->data_size());
+        for( auto i = 0 ; i < S->data_size() ; i++ ) {
+            auto d = S->data(i);
+            auto t = d.token();
+            locs[t] = i;
+            toks[i] = t;
+            counts.push_back(d.prob());
+        }
+    }
     ~Sampler() {};
 
     void print() {
@@ -524,7 +546,7 @@ public:
 
     TokenType sample() {
         auto r = total * rand() / (RAND_MAX);
-        for( auto i = 0 ; i < counts.size() ; i++ ) {
+        for( auto i = 0ul ; i < counts.size() ; i++ ) {
             if( r < counts[i] ) { return toks[i]; }
             r -= counts[i];
         }
@@ -576,6 +598,14 @@ class SuffixTree {
 
 public:
     SuffixTree(const TokenType t) : token(t) { sampler = Sampler(); };
+    SuffixTree(const efnlp::PROTO_VERSION::SuffixTree * P) {
+        token = P->token();
+        sampler = Sampler(&P->sampler());
+        for( auto i = 0 ; i < P->prefixes_size() ; i++ ) {
+            auto SC = SuffixTree(&P->prefixes(i));
+            prefixes.emplace(SC.getToken(), SC);
+        }
+    }
     ~SuffixTree() {};
 
     void print(string h) {
@@ -615,6 +645,8 @@ public:
         }
         return st;
     }
+
+    TokenType getToken() { return token; }
 
     void parse(Prefix p, const TokenType s) {
         sampler + s;
@@ -686,21 +718,30 @@ public:
 
 class SuffixTreeSet {
     int N;
-    map<TokenType, SuffixTree> trees;
+    map<TokenType, SuffixTree> prefixes;
 
 public:
     SuffixTreeSet(int N) : N(N) {};
     template<typename T> SuffixTreeSet(Language<T> * L) { N = L->length(); }
+    template<typename T> SuffixTreeSet(
+        Language<T> * L, const efnlp::PROTO_VERSION::SuffixTreeSet * S
+    ) { 
+        N = L->length();
+        for( auto i = 0 ; i < S->prefixes_size() ; i++ ) {
+            auto SC = SuffixTree(&S->prefixes(i));
+            prefixes.emplace(SC.getToken(), SC);
+        }
+    }
     ~SuffixTreeSet() {};
 
     void print() {
-        for( auto [t, tree] : trees ) { 
+        for( auto [t, tree] : prefixes ) { 
             tree.print(""); cout << "\n";
         }
     }
 
     template<typename T> void render(Language<T> * L) {
-        for( auto [t, tree] : trees ) { 
+        for( auto [t, tree] : prefixes ) { 
             tree.render(L, ""); cout << "\n";
         }
     }
@@ -708,7 +749,7 @@ public:
     string json() {
         stringstream ss;
         ss << "{";
-        for( auto [t, tree] : trees ) {
+        for( auto [t, tree] : prefixes ) {
             ss << "\"" << t << "\":" << tree.json() << ",";
             // how to not have trailing ","?
         }
@@ -718,7 +759,7 @@ public:
 
     efnlp::PROTO_VERSION::SuffixTreeSet proto() {
         efnlp::PROTO_VERSION::SuffixTreeSet sts;
-        for( auto [t, tree] : trees ) {
+        for( auto [t, tree] : prefixes ) {
             auto st = tree.proto();
             sts.add_prefixes()->CopyFrom(st);
         }
@@ -730,9 +771,9 @@ public:
             throw invalid_argument("Cannot parse an empty prefix");
         }
         auto t = (*p)[-1];
-        if( trees.count(t) == 0 )
-            trees.emplace(t, SuffixTree(t));
-        trees.at(t).parse(p->pop(), s);
+        if( prefixes.count(t) == 0 )
+            prefixes.emplace(t, SuffixTree(t));
+        prefixes.at(t).parse(p->pop(), s);
     }
 
     // from files? (maybe name better)
@@ -742,32 +783,32 @@ public:
 
     int bytes() { // return estimate for memory used
         int s = 0;
-        for( auto [t, tree] : trees )
+        for( auto [t, tree] : prefixes )
             s += tree.bytes();
         return s;
     }
 
-    int countPrefixes(TokenType t) { return trees.at(t).countPrefixes(); }
+    int countPrefixes(TokenType t) { return prefixes.at(t).countPrefixes(); }
     int countPrefixes() {
         int C = 0;
-        for( auto [t, tree] : trees )
+        for( auto [t, tree] : prefixes )
             C += tree.countPrefixes();
         return C;
     }
 
-    int countPatterns(TokenType t) { return trees.at(t).countPatterns(); }
+    int countPatterns(TokenType t) { return prefixes.at(t).countPatterns(); }
     int countPatterns() {
         int C = 0;
-        for( auto [t, tree] : trees )
+        for( auto [t, tree] : prefixes )
             C += tree.countPatterns();
         return C;
     }
 
-    // vector<TokenString> prefixes(TokenType t) { return trees.at(t).prefixes(); }
+    // vector<TokenString> prefixes(TokenType t) { return prefixes.at(t).prefixes(); }
     // vector<TokenString> prefixes(); 
     // {
     //     vector<TokenString> ps;
-    //     for( auto [t, tree] : trees ) {
+    //     for( auto [t, tree] : prefixes ) {
     //         auto qs = tree.prefixes();
     //         ps.reserve(ps.size() + qs.size());
     //         ps.insert(ps.end(), qs.begin(), qs.end());
@@ -775,13 +816,13 @@ public:
     //     return ps;
     // }
 
-    vector<Pattern> patterns(TokenType t) { return trees.at(t).patterns(); }
+    vector<Pattern> patterns(TokenType t) { return prefixes.at(t).patterns(); }
     vector<Pattern> patterns();
 
-    Prefix * search(Prefix * p) { return trees.at((*p)[-1]).search(p->pop()); }
-    bool match(Prefix * p) { return trees.at((*p)[-1]).match(p->pop()); }
+    Prefix * search(Prefix * p) { return prefixes.at((*p)[-1]).search(p->pop()); }
+    bool match(Prefix * p) { return prefixes.at((*p)[-1]).match(p->pop()); }
 
-    TokenType sample(Prefix * p) { return trees.at((*p)[-1]).sample(p->pop()); }
+    TokenType sample(Prefix * p) { return prefixes.at((*p)[-1]).sample(p->pop()); }
 
     TokenString generate(int N, int B, TokenString * prompt) {
 
@@ -813,7 +854,7 @@ public:
         return gen;
     }
 
-    SuffixTree& operator[](TokenType t) { return trees.at(t); };
+    SuffixTree& operator[](TokenType t) { return prefixes.at(t); };
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -847,13 +888,13 @@ string readFile(string filename) {
 int main(int argc, char *argv[]) {
 
     int B = 5, G = 0, N;
-    bool prefixes = false, memory = false, verbose = true;
+    bool prefixes = false, memory = false, verbose = true, dump = false;
     string filename, output, textprompt = " ";
 
     Timer timer = Timer();
 
     for(;;) {
-        switch( getopt(argc, argv, "c:b:g:p:o:smqh") ) {
+        switch( getopt(argc, argv, "c:b:g:p:o:dsmqh") ) {
 
             // options
             case 'c': filename = optarg; continue;
@@ -863,6 +904,7 @@ int main(int argc, char *argv[]) {
             case 'o': output = optarg; continue;
 
             // flags
+            case 'd': dump = true; continue;
             case 's': prefixes = true; continue;
             case 'm': memory = true; continue;
             case 'q': verbose = false; continue;
@@ -892,6 +934,8 @@ int main(int argc, char *argv[]) {
         cout << "  generating: " << G << "\n";
         cout << "  prompt: \"" << textprompt << "\"\n";
         cout << "  output: " << output << "\n";
+        if( dump )
+            cout << "  dumping results\n";
         cout << "\n";
     }
 
@@ -913,6 +957,35 @@ int main(int argc, char *argv[]) {
     CharLanguage L(text);
     if( verbose ) 
         spdlog::info("Timer:: Language parsing ms: {}", timer.toc_ms());
+
+    if( dump ) {
+
+        if( verbose )
+            spdlog::info("Serializing parsed language to protobuf");
+
+        timer.tic();
+        auto L_proto = L.proto();
+        if( verbose ) 
+            spdlog::info("Timer:: Protobuf serialization us: {:}", timer.toc_us());
+
+        ofstream ofs("language.proto.bin", ios_base::out | ios_base::binary);
+        L_proto.SerializeToOstream(&ofs);
+        ofs.close();
+
+        efnlp::PROTO_VERSION::Language CL_proto;
+
+        ifstream in("language.proto.bin", ios::in | ios::binary);
+        if( !CL_proto.ParseFromIstream(&in) ) {
+            spdlog::info("Failed to deserialize written protobuf data");
+        } else {
+            timer.tic();
+            CharLanguage CL = CharLanguage(&CL_proto);
+            if( verbose ) 
+                spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+        }
+        in.close();
+
+    }
 
     if( verbose )
         spdlog::info("Encoding corpus");
@@ -937,6 +1010,35 @@ int main(int argc, char *argv[]) {
     }
     if( verbose ) 
         spdlog::info("Timer:: Parsing ms: {:}", timer.toc_ms());
+
+    if( dump ) {
+
+        if( verbose )
+            spdlog::info("Serializing parsed data to protobuf");
+
+        timer.tic();
+        auto S_proto = S.proto();
+        if( verbose ) 
+            spdlog::info("Timer:: Protobuf serialization ms: {:}", timer.toc_ms());
+
+        ofstream ofs("model.proto.bin", ios_base::out | ios_base::binary);
+        S_proto.SerializeToOstream(&ofs);
+        ofs.close();
+
+        efnlp::PROTO_VERSION::SuffixTreeSet ST_proto;
+
+        ifstream in("model.proto.bin", ios::in | ios::binary);
+        if( !ST_proto.ParseFromIstream(&in) ) {
+            spdlog::info("Failed to deserialize written protobuf data");
+        } else {
+            timer.tic();
+            SuffixTreeSet ST = SuffixTreeSet(&L, &ST_proto);
+            if( verbose ) 
+                spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+        }
+        in.close();
+
+    }
 
     if( prefixes && verbose ) {
 

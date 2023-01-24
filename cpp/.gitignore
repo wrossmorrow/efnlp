@@ -9,3 +9,8 @@ efnlp
 # don't commit proto codegen
 *.pb.h
 *.pb.cc
+
+# don't commit written proto
+*.proto.bin
+
+sample-results.txt
