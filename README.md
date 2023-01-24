@@ -67,4 +67,4 @@ See [`__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-d
 
 ### c++
 
-See `cpp/*`, with stuff that should be ready for `cmake` to run through a build. 
+See [`cpp/*`](/cpp), with stuff that should be ready for `cmake` to run through a build. Embarassingly, pretty much everything is just in [`main.cpp`](/cpp/main.cpp). 
