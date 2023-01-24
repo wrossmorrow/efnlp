@@ -4,6 +4,9 @@ all: preproc compile run
 preproc:
 	cmake CMakeLists.txt
 
+codegen:
+	protoc -I=proto --cpp_out=proto proto/efnlp.proto
+
 compile:
 	make
 

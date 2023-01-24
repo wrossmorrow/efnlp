@@ -31,6 +31,25 @@ The full CLI arg list can be reviewed from
 $ python -m efnlp -h
 ```
 
+More comprehensive results are in the following table: 
+
+| B | \# prefixes | r(B) | \# patterns | s(B) | avg &tau; | space | parse | gen/&tau; | parse | gen/&tau; |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 65 | 0.0\% | 1,403 | 0.1\% | 21.6 | 49kB | 1s | 0.3ms | 51ms | 0.1&mu;s |
+| 2 | 1,403 | 0.1\% | 11,556 | 1.0\% | 8.2 | 264kB | 2s | 0.3ms | 151ms | 0.1&mu;s |
+| 3 | 11,556 | 1.0\% | 50,712 | 4.5\% | 4.4 | 1MB | 3s | 0.4ms | 297ms | 0.4&mu;s |
+| 4 | 50,712 | 4.5\% | 141,021 | 12.6\% | 2.8 | 4MB | 5s | 0.5ms | 561ms | 0.4&mu;s |
+| 5 | 141,021 | 12.6\% | 283,313 | 25.4\% | 2.0 | 9MB | 7s | 0.6ms | 1.2s | 0.5&mu;s |
+| 7 | 447,352 | 40.1\% | 609,659 | 54.7\% | 1.4 | 26MB | 16s | 0.9ms | 1.8s | 0.8&mu;s |
+| 10 | 858,920 | 77.0\% | 937,254 | 84.0\% | 1.1 | 50MB | 35s | 1.0ms | 3.4s | 1.1&mu;s |
+| 12 | 991,391 | 88.9\% | 1,027,857 | 92.2\% | 1.0 | 63MB | 51s | 1.2ms | 4.1s | 1.2&mu;s |
+| 15 | 1,069,423 | 95.9\% | 1,081,060 | 96.9\% | 1.0 | 78MB | 74s | 3.0ms | 5.4s | 1.4&mu;s |
+| 20 | 1,103,358 | 98.9\% | 1,106,345 | 99.2\% | 1.0 | 101MB | 144s | 13.8ms | 7.8s | 1.5&mu;s |
+
+Note (until we get better formatting) that the first "parse" and "gen/&tau;" columns are for `python`, the second set are for `c++` (see `cpp` folder). 
+
+With compiled code, we can parse out the (C)EFs in shakespeare in seconds, and generate text at O(&mu;s). 
+
 ## Usage
 
 See [`__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-dumb implementations in [`__init__.py`](/efnlp/__init__.py). 

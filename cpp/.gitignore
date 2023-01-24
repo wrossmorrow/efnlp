@@ -5,3 +5,7 @@ CMakeFiles
 
 # don't commit binary
 efnlp
+
+# don't commit proto codegen
+*.pb.h
+*.pb.cc

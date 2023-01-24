@@ -18,6 +18,10 @@
 
 #include "spdlog/spdlog.h"
 
+#include "efnlp.pb.h" // Note: path depends on cmake config
+
+#define PROTO_VERSION v1alpha1
+
 using namespace std; 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -123,6 +127,17 @@ public:
             // how to not have trailing ","?
         ss << "}";
         return ss.str();
+    }
+
+    efnlp::PROTO_VERSION::Language proto() {
+        efnlp::PROTO_VERSION::Language lang;
+        lang.set_name("CharLanguage");
+        for( auto const& [t, c] : ttos ) {
+            auto enc = lang.add_lang();
+            enc->set_token(t);
+            enc->set_data(&c); // TODO: ok for "bytes" type?
+        }
+        return lang;
     }
 
     // encode/decode with [] operator
@@ -481,6 +496,16 @@ public:
         return ss.str();
     }
 
+    efnlp::PROTO_VERSION::Sampler proto() {
+        efnlp::PROTO_VERSION::Sampler s;
+        for( auto const& [t, i] : locs ) {
+            auto d = s.add_data();
+            d->set_token(t);
+            d->set_prob(counts[i]/total);
+        }
+        return s;
+    }
+
     size_t bytes() {
         return BYTES_PER_TARGET * counts.size() + sizeof(ProbType);
     }
@@ -574,9 +599,21 @@ public:
         ss << "\"sampler\":" << sampler.json() << ",";
         ss << "\"prefixes\":[";
         for( auto [t, c] : prefixes ) 
-            ss << c.json();
+            ss << c.json() << ","; // how to not have trailing ","?
         ss << "]}";
         return ss.str();
+    }
+
+    efnlp::PROTO_VERSION::SuffixTree proto() {
+        efnlp::PROTO_VERSION::SuffixTree st;
+        st.set_token(token);
+        auto smpl = sampler.proto();
+        st.mutable_sampler()->CopyFrom(smpl);
+        for( auto [t, tree] : prefixes ) {
+            auto _st = tree.proto(); // recursion
+            st.add_prefixes()->CopyFrom(_st);
+        }
+        return st;
     }
 
     void parse(Prefix p, const TokenType s) {
@@ -666,6 +703,26 @@ public:
         for( auto [t, tree] : trees ) { 
             tree.render(L, ""); cout << "\n";
         }
+    }
+
+    string json() {
+        stringstream ss;
+        ss << "{";
+        for( auto [t, tree] : trees ) {
+            ss << "\"" << t << "\":" << tree.json() << ",";
+            // how to not have trailing ","?
+        }
+        ss << "}";
+        return ss.str();
+    }
+
+    efnlp::PROTO_VERSION::SuffixTreeSet proto() {
+        efnlp::PROTO_VERSION::SuffixTreeSet sts;
+        for( auto [t, tree] : trees ) {
+            auto st = tree.proto();
+            sts.add_prefixes()->CopyFrom(st);
+        }
+        return sts;
     }
 
     void parse(Prefix * p, TokenType s) { // why not Pattern?
@@ -796,7 +853,7 @@ int main(int argc, char *argv[]) {
     Timer timer = Timer();
 
     for(;;) {
-        switch( getopt(argc, argv, "c:b:g:p:o:Pmqh") ) {
+        switch( getopt(argc, argv, "c:b:g:p:o:smqh") ) {
 
             // options
             case 'c': filename = optarg; continue;
@@ -806,7 +863,7 @@ int main(int argc, char *argv[]) {
             case 'o': output = optarg; continue;
 
             // flags
-            case 'P': prefixes = true; continue;
+            case 's': prefixes = true; continue;
             case 'm': memory = true; continue;
             case 'q': verbose = false; continue;
 
