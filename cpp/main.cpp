@@ -571,7 +571,8 @@ public:
         stringstream ss;
         ss << "{";
         ss << "\"token\":" << token << ",";
-        ss << "\"prefixes\":[" 
+        ss << "\"sampler\":" << sampler.json() << ",";
+        ss << "\"prefixes\":[";
         for( auto [t, c] : prefixes ) 
             ss << c.json();
         ss << "]}";

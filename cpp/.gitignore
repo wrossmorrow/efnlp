@@ -2,3 +2,6 @@ Makefile
 CMakeCache.txt
 CMakeFiles
 *.cmake
+
+# don't commit binary
+efnlp
