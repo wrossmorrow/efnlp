@@ -169,35 +169,29 @@ A more ``realistic'' (minimum) storage scaling concept is $(N-B-1)(B+1+d)r(B)s(B
 
 As an example, for the $1,115,393$ tokens of all of Shakespeare we have the following parsing results:
 \begin{center}
+\begin{small}
 \begin{tabular}{ r r c r c r r r r r r}
-% $B$ & \# prefixes & ($r(B)$) & \# patterns & ($s(B)$) & avg $\tau$ & min space & parse time & gen time \\ \hline
-% 1 & 65 & (0.0\%) & 1,403 & (0.1\%) & 21.6 & 49kB & 1s & 0.3ms \\  
-% 2 & 1,403 & (0.1\%) & 11,556 & (1.0\%) & 8.2 & 264kB & 2s & 0.3ms \\  
-% 3 & 11,556 & (1.0\%) & 50,712 & (4.5\%) & 4.4 & 1MB & 3s & 0.4ms \\
-% 4 & 50,712 & (4.5\%) & 141,021 & (12.6\%) & 2.8 & 4MB & 5s & 0.5ms \\
-% 5 & 141,021 & (12.6\%) & 283,313 & (25.4\%) & 2.0 & 9MB & 7s & 0.6ms \\
-% 7 & 447,352 & (40.1\%) & 609,659 & (54.7\%) & 1.4 & 26MB & 16s & 0.9ms \\
-% 10 & 858,920 & (77.0\%) & 937,254 & (84.0\%) & 1.1 & 50MB & 35s & 1.0ms \\  
-% 12 & 991,391 & (88.9\%) & 1,027,857 & (92.2\%) & 1.0 & 63MB & 51s & 1.2ms \\
-% 15 & 1,069,423 & (95.9\%) & 1,081,060 & (96.9\%) & 1.0 & 78MB & 74s & 3.0ms \\  
-% 20 & 1,103,358 & (98.9\%) & 1,106,345 & (99.2\%) & 1.0 & 101MB & 144s & 13.8ms \\  \hline
- $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & avg $\tau$ & min space & parse time & gen time \\ \hline
- 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 49kB & 1s & 0.3ms \\  
- 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 264kB & 2s & 0.3ms \\  
- 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 1MB & 3s & 0.4ms \\
- 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 4MB & 5s & 0.5ms \\
- 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 9MB & 7s & 0.6ms \\
- 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 26MB & 16s & 0.9ms \\
- 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 50MB & 35s & 1.0ms \\  
- 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 63MB & 51s & 1.2ms \\
- 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 78MB & 74s & 3.0ms \\  
- 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 101MB & 144s & 13.8ms \\  \hline
-
+        &                  &             &                   &             &                   & min  & \multicolumn{2}{c}{\texttt{python}} & \multicolumn{2}{c}{\texttt{c++}} \\ \cline{8-9} \cline{10-11}
+ $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & avg $\tau$ & space & parse & gen & parse & gen/$\tau$ \\ \hline
+ 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 49kB & 1s & 0.3ms & 0.7s & 0.4$\mu$s \\  
+ 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 264kB & 2s & 0.3ms & 1.3s & 0.7$\mu$s \\  
+ 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 1MB & 3s & 0.4ms & 1.9s & 1.0$\mu$s \\
+ 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 4MB & 5s & 0.5ms & 2.7s & 1.2$\mu$s \\
+ 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 9MB & 7s & 0.6ms & 3.7s & 1.5$\mu$s \\
+ 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 26MB & 16s & 0.9ms & 6.7s & 2.1$\mu$s \\
+ 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 50MB & 35s & 1.0ms & 13.5s & 3.0$\mu$s \\  
+ 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 63MB & 51s & 1.2ms & 17.9s & 3.1$\mu$s \\
+ 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 78MB & 74s & 3.0ms & 25.6s & 4.0$\mu$s \\  
+ 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 101MB & 144s & 13.8ms & 40.7s & 4.5$\mu$s \\  \hline
 \end{tabular}
+\end{small}
 \end{center}
-Note the ``gen time'' is a time per token drawn with 10k draws. 
+Note the ``gen/$\tau$'' is a time per token drawn with 10k draws. 
 
 With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$, we definitely have far fewer successors than ``random'' ($22 ~ T/3$). Still the generative output from such a sparse model is expectedly and unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively). The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have at least one successor, so if we have (even on average) a single successor per prefix we have probably captured all there is to capture from prefix sequences. 
+
+A \texttt{c++} implementation is faster, but otherwise identical. Parsing times are roughly 1/2-1/3rd of those with \texttt{python}, while sampling times are roughly 3 orders of magnitude faster (O($\mu$s) instead of O(ms)). 
+
 
 
 

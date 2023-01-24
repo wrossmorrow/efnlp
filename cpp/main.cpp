@@ -71,18 +71,22 @@ class Timer {
 
 public:
     void tic() { s = Clock::now(); }
+
     double toc_s() {
         auto e = Clock::now();
         return chrono::duration_cast<std::chrono::seconds>(e -s).count();
     }
+
     double toc_ms() {
         auto e = Clock::now();
         return chrono::duration_cast<std::chrono::milliseconds>(e -s).count();
     }
+
     double toc_us() {
         auto e = Clock::now();
         return chrono::duration_cast<std::chrono::microseconds>(e -s).count();
     }
+
     double toc_ns() {
         auto e = Clock::now();
         return chrono::duration_cast<std::chrono::nanoseconds>(e -s).count();
@@ -107,7 +111,18 @@ public:
     int length() { return size; }
 
     void print() {
-        for( auto p: ttos ) { cout << "(" << p.first << "," << p.second << ")\n"; }
+        for( auto const& [t, s]: ttos )
+            cout << "(" << t << "," << s << ")\n";
+    }
+
+    string json() {
+        stringstream ss;
+        ss << "{";
+        for( auto const& [t, s]: ttos )
+            ss << t << ":\"" << s << "\",";
+            // how to not have trailing ","?
+        ss << "}";
+        return ss.str();
     }
 
     // encode/decode with [] operator
@@ -126,6 +141,7 @@ public:
             out.push_back(stot[t]);
         return out;
     }
+
     vector<T> decode(vector<TokenType> in) {
         vector<T> out;
         out.reserve(in.size());
@@ -334,6 +350,7 @@ public:
 class Prefix {
     int N, s, e;
     TokenString * d;
+
 public:
     Prefix(TokenString * d, int N, int s) : d(d), N(N), s(s) {
         e = s + N; // e >= s
@@ -380,17 +397,14 @@ public:
     }
 
     TokenType& operator[](int i) {
-        // cout << "[" << s << "," << e << ")[" << i << "] (" << s - e << ")\n";
         if( i >= N || i < s - e ) {
             throw invalid_argument(
                 ErrFmt() << "Index " << i << " out of bounds for [" << s << "," << e << ")"
             ); 
         }
         if( i < 0 ) {
-            // cout << "Accessing " << e+i << " from [" << s << "," << e << ")\n";
             return (*d)[e+i]; 
         }
-        // cout << "Accessing " << i << " from [" << s << "," << e << ")\n";
         return (*d)[s+i];
     }
 
@@ -429,11 +443,14 @@ public:
 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-const size_t BYTES_PER_TARGET = sizeof(double) + 2 * sizeof(int) + 2 * sizeof(TokenType);
+typedef double ProbType;
+
+const size_t BYTES_PER_TARGET = sizeof(ProbType) + 2 * sizeof(int) + 2 * sizeof(TokenType);
+
 
 class Sampler {
-    double total;
-    vector<double> counts;
+    ProbType total;
+    vector<ProbType> counts;
     map<TokenType, int> locs;
     map<int, TokenType> toks;
 
@@ -442,29 +459,39 @@ public:
     ~Sampler() {};
 
     void print() {
-        for( auto const& [t, i] : locs ) {
+        for( auto const& [t, i] : locs )
             cout << t << "(" << counts[i]/total << "), ";
-        }
     }
     
     template<typename T> void render(Language<T> * L) {
-        for( auto const& [t, i] : locs ) {
+        for( auto const& [t, i] : locs )
             cout << '"' << (*L)[t] << '"' << "(" << counts[i]/total << "), ";
-        }
     }
 
     int size() { return counts.size(); }
+
+    string json() {
+        stringstream ss;
+        ss << "{";
+        for( auto const& [t, i] : locs ) {
+            ss << t << ":" << counts[i]/total << ",";
+            // how to not print extra ","?
+        }
+        ss << "}";
+        return ss.str();
+    }
+
     size_t bytes() {
-        return BYTES_PER_TARGET * counts.size() + sizeof(double);
+        return BYTES_PER_TARGET * counts.size() + sizeof(ProbType);
     }
 
     void add(TokenType t) {
         total += 1.0f;
         if( locs.count(t) == 0 ) {
-            auto idx = counts.size();
+            auto i = counts.size();
             counts.push_back(1.0f);
-            locs[t] = idx;
-            toks[idx] = t;
+            locs[t] = i;
+            toks[i] = t;
         } else {
             counts[locs[t]] += 1.0f;
         }
@@ -479,6 +506,34 @@ public:
         return 0; // THIS SHOULD NOT BE REACHABLE
     }
 
+    ProbType probability(TokenType t) {
+        if( locs.count(t) == 0 ) 
+            return 0.0f;
+        return counts[locs[t]]/total;
+    }
+
+    map<TokenType, ProbType> histogram() {
+        map<TokenType, ProbType> D;
+        for( auto [t, i] : locs )
+            D[t] = counts[i];
+        return D;
+    }
+
+    void merge(Sampler * S) {
+        auto D = S->histogram();
+        for( auto [t, c] : D ) {
+            total += c;
+            if( locs.count(t) == 0 ) {
+                auto i = counts.size();
+                counts.push_back(c);
+                locs[t] = i;
+                toks[i] = t;
+            } else {
+                counts[locs[t]] += c;
+            }
+        }
+    }
+
     void operator+(TokenType t) { add(t); }
 
 };
@@ -491,7 +546,7 @@ public:
 
 class SuffixTree {
     int token;
-    map<TokenType, SuffixTree> children;
+    map<TokenType, SuffixTree> prefixes;
     Sampler sampler;
 
 public:
@@ -501,37 +556,69 @@ public:
     void print(string h) {
         cout << h << "SuffixTree(" << token << "): ";
         sampler.print(); cout << "\n";
-        for( auto [t, c] : children ) { c.print(h + "  "); }
+        for( auto [t, c] : prefixes )
+            c.print(h + "  ");
     }
 
     template<typename T> void render(Language<T> * L, string h) {
         cout << h << "SuffixTree(\"" << (*L)[token] << "\"): ";
         sampler.render(L); cout << "\n";
-        for( auto [t, c] : children ) { c.render(L, h + "  "); }
+        for( auto [t, c] : prefixes )
+            c.render(L, h + "  ");
+    }
+
+    string json() {
+        stringstream ss;
+        ss << "{";
+        ss << "\"token\":" << token << ",";
+        ss << "\"prefixes\":[" 
+        for( auto [t, c] : prefixes ) 
+            ss << c.json();
+        ss << "]}";
+        return ss.str();
     }
 
     void parse(Prefix p, const TokenType s) {
         sampler + s;
         if( p.length() > 0 ) {
             auto t = p[-1];
-            if( children.count(t) == 0 ) {
-                children.emplace(t, SuffixTree(t));
-            }
-            children.at(t).parse(p.pop(), s);
+            if( prefixes.count(t) == 0 )
+                prefixes.emplace(t, SuffixTree(t));
+            prefixes.at(t).parse(p.pop(), s);
         }
     }
 
-
     size_t bytes() { // return estimate for memory used
         auto b = sampler.bytes();
-        for( auto [t, c] : children ) { b += c.bytes(); }
+        for( auto [t, c] : prefixes ) 
+            b += c.bytes();
         return b;
     }
 
-    vector<TokenString> prefixes();
+    int countPrefixes() {
+        if( prefixes.size() == 0 )
+            return 1;
+
+        int C = 0;
+        for( auto [c, st] : prefixes )
+            C += st.countPrefixes();
+        return C;
+    }
+
+    int countPatterns() {
+        if( prefixes.size() == 0 )
+            return sampler.size();
+
+        int C = 0;
+        for( auto [c, st] : prefixes )
+            C += st.countPatterns();
+        return C;
+    }
+
+    // vector<TokenString> prefixes();
     // {
     //     vector<TokenString> Ts;
-    //     if( children.size() == 0 ) {
+    //     if( prefixes.size() == 0 ) {
     //         vector<TokenType> T = vector<TokenType> { token };
     //         TokenString TS = TokenString(&T);
     //         Ts.push_back(TS);
@@ -543,15 +630,17 @@ public:
 
     vector<Pattern> patterns();
 
-    Prefix * search(Prefix);
+    Prefix * search(Prefix p);
     bool match(Prefix);
 
     TokenType sample(Prefix p) {
-        if( p.length() == 0 ) { return sampler.sample(); }
+        if( p.length() == 0 )
+            return sampler.sample();
 
         auto s = p[-1];
-        if( children.count(s) == 0 ) { return sampler.sample(); }
-        return children.at(s).sample(p.pop());
+        if( prefixes.count(s) == 0 )
+            return sampler.sample();
+        return prefixes.at(s).sample(p.pop());
     }
 
 };
@@ -583,9 +672,8 @@ public:
             throw invalid_argument("Cannot parse an empty prefix");
         }
         auto t = (*p)[-1];
-        if( trees.count(t) == 0 ) {
+        if( trees.count(t) == 0 )
             trees.emplace(t, SuffixTree(t));
-        }
         trees.at(t).parse(p->pop(), s);
     }
 
@@ -596,12 +684,29 @@ public:
 
     int bytes() { // return estimate for memory used
         int s = 0;
-        for( auto [t, tree] : trees ) { s += tree.bytes(); }
+        for( auto [t, tree] : trees )
+            s += tree.bytes();
         return s;
     }
 
-    vector<TokenString> prefixes(TokenType t) { return trees.at(t).prefixes(); }
-    vector<TokenString> prefixes(); 
+    int countPrefixes(TokenType t) { return trees.at(t).countPrefixes(); }
+    int countPrefixes() {
+        int C = 0;
+        for( auto [t, tree] : trees )
+            C += tree.countPrefixes();
+        return C;
+    }
+
+    int countPatterns(TokenType t) { return trees.at(t).countPatterns(); }
+    int countPatterns() {
+        int C = 0;
+        for( auto [t, tree] : trees )
+            C += tree.countPatterns();
+        return C;
+    }
+
+    // vector<TokenString> prefixes(TokenType t) { return trees.at(t).prefixes(); }
+    // vector<TokenString> prefixes(); 
     // {
     //     vector<TokenString> ps;
     //     for( auto [t, tree] : trees ) {
@@ -618,9 +723,7 @@ public:
     Prefix * search(Prefix * p) { return trees.at((*p)[-1]).search(p->pop()); }
     bool match(Prefix * p) { return trees.at((*p)[-1]).match(p->pop()); }
 
-    TokenType sample(Prefix * p) { 
-        return trees.at((*p)[-1]).sample(p->pop()); 
-    }
+    TokenType sample(Prefix * p) { return trees.at((*p)[-1]).sample(p->pop()); }
 
     TokenString generate(int N, int B, TokenString * prompt) {
 
@@ -632,7 +735,8 @@ public:
         auto i = 0;
 
         // copy in the first P tokens
-        for( ; i < P ; i++ ) { gen[i] = (*prompt)[i]; }
+        for( ; i < P ; i++ )
+            gen[i] = (*prompt)[i];
 
         // i == P, but P < B: sample with special prefixes
         // (if we define and shift, we'll get bad accesses)
@@ -660,11 +764,6 @@ public:
 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void printCharSeq(CharLanguage *L, char c) {
-    cout << c << " | " << (*L)[c] << " | " << (*L)[(*L)[c]] << "\n";
-    cout << c << " | " << (*L).encode(c) << " | " << (*L).decode((*L).encode(c)) << "\n";
-}
-
 string readFile(ifstream * in) {
     string contents;
     if(in) {
@@ -689,27 +788,24 @@ string readFile(string filename) {
 
 int main(int argc, char *argv[]) {
 
-    int B = 5;
-    int G = 0;
-    bool memory = false;
-    bool verbose = true;
-    string filename;
-    string textprompt = " ";
-    string output;
+    int B = 5, G = 0, N;
+    bool prefixes = false, memory = false, verbose = true;
+    string filename, output, textprompt = " ";
 
     Timer timer = Timer();
 
     for(;;) {
-        switch( getopt(argc, argv, "f:b:g:p:o:mqh") ) {
+        switch( getopt(argc, argv, "c:b:g:p:o:Pmqh") ) {
 
             // options
-            case 'f': filename = optarg; continue;
+            case 'c': filename = optarg; continue;
             case 'b': B = atoi(optarg); continue;
             case 'g': G = atoi(optarg); continue;
             case 'p': textprompt = optarg; continue;
             case 'o': output = optarg; continue;
 
             // flags
+            case 'P': prefixes = true; continue;
             case 'm': memory = true; continue;
             case 'q': verbose = false; continue;
 
@@ -768,8 +864,10 @@ int main(int argc, char *argv[]) {
     if( verbose ) 
         spdlog::info("Timer:: Encoding ms: {}", timer.toc_ms());
 
+    N = C.length();
 
     if( verbose ) 
+        spdlog::info("Stats:: Corpus is {} tokens long", N);
         spdlog::info("Parsing suffix tree");
 
     timer.tic();
@@ -782,6 +880,30 @@ int main(int argc, char *argv[]) {
     if( verbose ) 
         spdlog::info("Timer:: Parsing ms: {:}", timer.toc_ms());
 
+    if( prefixes && verbose ) {
+
+        int c;
+
+        spdlog::info("Estimating prefixes...");
+
+        timer.tic();
+        c = S.countPrefixes();
+        if( verbose ) 
+            spdlog::info("Timer:: Prefix count ms: {}", timer.toc_ms());
+
+        spdlog::info("Stats:: Prefix count {} ({:0.2f}%)", c, 100.0f*((double)c)/((double)(N-B-1)));
+
+        spdlog::info("Estimating patterns...");
+
+        timer.tic();
+        c = S.countPatterns();
+        if( verbose ) 
+            spdlog::info("Timer:: Pattern count ms: {}", timer.toc_ms());
+
+        spdlog::info("Stats:: Pattern count {} ({:0.2f}%)", c, 100.0f*((double)c)/((double)(N-B-1)));
+
+    }
+
     if( memory && verbose ) {
 
         spdlog::info("Estimating memory...");
@@ -791,7 +913,7 @@ int main(int argc, char *argv[]) {
         if( verbose ) 
             spdlog::info("Timer:: Mem estimate ms: {}", timer.toc_ms());
 
-        spdlog::info("Estimated memory {:0.2f}MB ({:}B)", (double)b/1024.0/1024.0, b);
+        spdlog::info("Stats:: Memory {:0.2f}MB ({:}B)", (double)b/1024.0/1024.0, b);
     }
 
     if( G > 0 ) {
@@ -825,7 +947,6 @@ int main(int argc, char *argv[]) {
         } else {
             cout << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n";
             cout << gen.str(&L) << "\n";
-            // gen.render(&L); cout
             cout << "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - \n";
         }
     }
