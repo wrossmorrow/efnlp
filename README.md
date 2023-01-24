@@ -14,9 +14,9 @@ Obviously if simple (C)EF models were of comparable quality to modern LLMs they 
 
 ## Example 
 
-You can run this code from the CLI as
+You can run the `python` code from the CLI as
 ```shell
-$ python -m efnlp -c data/tinywillspeare.txt -m -b 10 -g 100000 -o sample-results.txt
+$ python -m efnlp -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-results.txt
 [2023-01-21T18:31:07.445610] Forming (character) language
 [2023-01-21T18:31:07.491561] Encoding corpus
 [2023-01-21T18:31:07.569177] Corpus is 1,115,393 tokens long
@@ -26,14 +26,19 @@ $ python -m efnlp -c data/tinywillspeare.txt -m -b 10 -g 100000 -o sample-result
 [2023-01-21T18:31:51.631112] Sampling and decoding 100000 tokens
 [2023-01-21T18:31:52.810630] Writing sampled results to sample-results.txt
 ```
-(and you can see results in [`sample-results.txt`](/sample-results.txt)). Our "model" is, more or less, 8M `double`s worth of "parameters" and "trains" (estimates) in a single process on an (old) macbook in under a minute (for 10-token sequence statistics). Sampling is basically constant time, relying on hashmaps; the example above takes about 0.1ms per character sampled (with zero code optimizations). The (C)EF "model" are a significant inflation of the data size: 1.1MB of data turns into 62.4MB of statistics. But honestly the results aren't that bad. It's junk of course, but on the surface comparable to generative text from a 10M parameter transformer style model applied to the same dataset that trained for 15 minutes on a GPU ([tweet here](https://twitter.com/karpathy/status/1615400286293753856?cxt=HHwWgIDUqY2Ah-ssAAAA), [code here](https://github.com/karpathy/nanoGPT)). 
+(for which you can see generated text in [`results`](/sample-results.txt)). The compiled `c++` is similar, 
+```shell
+cpp$ ./efnlp -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-results.txt
+```
+
+Our "model" here (in `python`) is, more or less, 8M `double`s worth of "parameters" and "trains" (estimates) in a single process on an (old) macbook in under a minute (for 10-token sequence statistics). Sampling is basically constant time, relying on hashmaps; the example above takes about 0.1ms per character sampled (with zero code optimizations). The (C)EF "model" are a significant inflation of the data size: 1.1MB of data turns into 62.4MB of statistics. But honestly the results aren't that bad. It's junk of course, but on the surface comparable to generative text from a 10M parameter transformer style model applied to the same dataset that trained for 15 minutes on a GPU ([tweet here](https://twitter.com/karpathy/status/1615400286293753856?cxt=HHwWgIDUqY2Ah-ssAAAA), [code here](https://github.com/karpathy/nanoGPT)). 
 
 The full CLI arg list can be reviewed from
 ```shell
 $ python -m efnlp -h
 ```
 
-More comprehensive results are in the following table: 
+More comprehensive results are detailed in the following table (see `paper/*.pdf` for more discussion): 
 
 | B | \# prefixes | r(B) | \# patterns | s(B) | avg &tau; | space | parse | gen/&tau; | parse | gen/&tau; |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

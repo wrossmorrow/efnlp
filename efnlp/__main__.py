@@ -44,7 +44,7 @@ def cli() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "-s",
+        "-v",
         "--split",
         type=float,
         default=1.0,
@@ -74,6 +74,15 @@ def cli() -> argparse.Namespace:
         type=str,
         default=None,
         help="""output to write to; None is stdout""",
+    )
+
+    parser.add_argument(
+        "-s",
+        "--stats",
+        dest="stats",
+        action="store_true",
+        default=False,
+        help="Print some stats to the console",
     )
 
     parser.add_argument(
@@ -150,7 +159,7 @@ if __name__ == "__main__":
     for i in range(B, N - 1):
         S.parse(C[i - B : i], C[i])
 
-    if args.verbose:
+    if args.verbose and args.stats:
         _print("Parsed prefixes and successors in corpus")
         prefix_count = len(S.prefixes())
         pop = 100.0 * prefix_count / (N - B - 1)  # exclude last element
