@@ -2,6 +2,8 @@
 
 This is the _jankiest possible_ take at computing n-gram or conditional empirical frequency ((C)EF) distributions for successor tokens given a fixed-width prefix. In a way it's purposefully naive, and interested in how far such a naive technique goes. 
 
+There's `python` and `c++` code (in `efnlp` and `cpp` respectively). 
+
 The basic idea is to explore computing these values and using them in generative sampling tasks. We "hypothesize" that the asymptotic (in data and model class universality) result of computational [(L)LMs](https://en.wikipedia.org/wiki/Language_model) is a high-fidelity representation of the (C)EF in the training data. This is a bit tautologous, for a consistent statistical model estimated on sufficient data. See `paper/*.pdf` for more. 
 
 Of course, a (C)EF "model" should have serious generalizability challenges when confronted with valid sequences not appearing in the training data. Particularly if we wish to generate text (via token sequences), we may generate sequences purely by chance that have no (or limited) precedent and thus have limited predictive capacity. However, as the training corpus grows to encompass more and more of the possibilities of discourse, the likelihood we have not "seen" a valid sequence must also decrease, while the model should also be getting progressively more aligned with the (C)EFs. 
@@ -52,4 +54,10 @@ With compiled code, we can parse out the (C)EFs in shakespeare in seconds, and g
 
 ## Usage
 
+### python
+
 See [`__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-dumb implementations in [`__init__.py`](/efnlp/__init__.py). 
+
+### c++
+
+See `cpp/*`, with stuff that should be ready for `cmake` to run through a build. 
