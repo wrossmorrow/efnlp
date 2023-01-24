@@ -146,40 +146,58 @@ $ python -m efnlp -c data/tinywillspeare.txt \
 [...:31:52.810630] Writing sampled results to \
 	sample-results.txt
 \end{lstlisting}
-We shorten an ISO timestamp in the ``logs'' here, and first number in the log (\texttt{31}) is the minutes place. Note the entire exercise -- encoding, estimating, and generating -- completes in under a minute. Sampling 10k tokens takes about a second (1.2s, for about 0.1ms per token sampled). We more or less store $6x$ the corpus volume in (C)EF data, the equivalent of 8M texttt{double}s (16M \texttt{float}s). This is all without any attention to code optimization, in a single process, on a 4-year-old 2.3 GHz i9 with 16GB 267 MHz DDR4 RAM.  
+We shorten an ISO timestamp in the ``logs'' here, and first number in the log (\texttt{31}) is the minutes place. Note the entire exercise -- encoding, estimating, and generating -- completes in under a minute. Sampling 10k tokens takes about a second (1.2s, for about 0.1ms per token sampled). We more or less store $6x$ the corpus volume in (C)EF data, the equivalent of 8M texttt{double}s (16M \texttt{float}s). This is all on a 4-year-old 2.3 GHz i9 with 16GB 2.7 GHz memory without any attention to code optimization (e.g., our datastructure is likely wasteful), in a single process, and with a bunch of other stuff (including chrome) running. 
 
-One take at a NN-LLM from a transformers example uses this data claims 10M parameters (so more memory if \texttt{double}s, less if \texttt{float}s) and takes 15mins to estimate using a GPU (and SOTA software). Sampling time for generation is not available, nor is a sample. 
+One take at a NN-LLM using transformers modeling this data claims to do a decent job with 10M parameters (so more memory if \texttt{double}s, less if \texttt{float}s) after estimating parameters on a GPU (and SOTA software) for 15mins. Sampling time for generation is not available, nor is a sample, for comparison; though tree based lookups and simple random sampling is likely to be dramatically more efficient than layers of linear and nonlinear operations with 10M parameters. 
 
 \section{Scaling}
 
-In an $N$-token long corpus $\mathcal{C}$ there are $N-B-1$ $(B+1)$-long subsequences of prefixes and (single token) successors. A simple estimate is that this requires, at most, storing $(N-B-1)(B+1+d)$ data elements where $d$ counts data required for empirical frequencies (a counter, and/or a probability). Note this is not linear in $B \leq N-1$, and is maximized at $B_* = (N-2-d)/2$. This is an {\em overestimate} by missing two things: that only certain prefixes will exist in the corpus, and for those there will be a fixed set of successors. This {\em underestimates} any storage we require for capturing the marginals for matching based on less than $B$ tokens in a prefix, although in principle those can computed on demand instead of cached (with slower sampling of course). 
+In an $N$-token long corpus $\mathcal{C}$ there are $N-B-1$ $(B+1)$-long subsequences of prefixes and (single token) successors. A simple estimate is that this requires, at most, storing $(N-B-1)(B+1+d)$ data elements where $d$ counts data required for empirical frequencies (a counter, and/or a probability). Note this is not linear in $B \leq N-1$, and is maximized at $B_* = (N-2-d)/2$ with a maximal value of
+\begin{equation*}
+	\frac{N^2-d^2}{4} - (N+d)
+		\approx \frac{N^2}{4} - N = N\left( \frac{N}{4} - 1 \right)
+\end{equation*}
+which is, in any case, $O(N^2)$. Presumably we won't need nearly this much storage though; for $B = \eta N$, expecting $\eta$ to be small (say $10^{-5}$ for the Shakespeare), we need something akin to $O(\eta N^2)$. In any case this is an {\em overestimate} by missing two things: that only certain prefixes will exist in the corpus (or more generally the language), and for those there will be a probably-much-smaller-than $T$ set of successors. This {\em underestimates} any storage we require for capturing the marginals for matching based on less than $B$ tokens in a prefix, although in principle those can computed on demand instead of cached (with slower sampling of course). 
 
 A more ``realistic'' (minimum) storage scaling concept is $(N-B-1)(B+1+d)r(B)s(B)$ where
 \begin{equation*}
-	r(B) = \frac{\#\text{ of prefixes}(N-1,B)}{N-B-1}
+	r(B) = \frac{\#\text{ of prefixes}}{N-B-1}
 	\quad\text{and}\quad
 	s(B) = \frac{\#\text{ of patterns}}{\#\text{ of prefixes}}
 \end{equation*}
-(leaving $N$ implicit). Broadly speaking we (probably) know some features of these ``functions'' $r$ and $s$. Specifically, $r(1) = L/N$ ($\ll 1$), and $r(B) \uparrow 1$; in fact $r(N-2) = 1$, because $\#\text{ of prefixes}(N-1,N-2) = 1$. Also $s(B) \geq 1$ (every prefix has at least one pattern) and $s(B) \downarrow 1$ (as longer prefixes are considered, their successors are more likely to be unique). 
+(leaving $N$ implicit). Broadly speaking we (probably) know some features of these ``functions'' $r$ and $s$. Specifically, $r(1) = L/N$ ($\ll 1$), $r(B) \leq 1$ (by definition), and $r(B) \uparrow 1$; in fact $r(N-2) = 1$, because $\#\text{ of prefixes} \to 1$. Also $s(B) \geq 1$ (every prefix has at least one pattern) and probably $s(B) \downarrow 1$ (as longer prefixes are considered, their successors are more likely to be unique). Note that $r(B)$ is not the fraction of {\em possible} prefixes, which would instead be $(\#\text{ of prefixes}/T^B)$ but we should probably expect that in ``natural'' language the number of {\em valid} prefixes is far, far smaller than $T^B$ (while admitting it may be much larger than $N-B-1$). Loosely speaking, if $T^B$ is at all relevant, the language would seem to be highly unstructured. 
 
-In the $1,115,393$ tokens Shakespeare we have the following parsing results:
+As an example, for the $1,115,393$ tokens of all of Shakespeare we have the following parsing results:
 \begin{center}
 \begin{tabular}{ r r c r c r r r r r r}
- $B$ & prefixes & ($r(B)$) & patterns & ($s(B)$) & avg $\tau$ & min space & parse time & gen time \\ 
- 1 & 65 & (0.0\%) & 1,403 & (0.1\%) & 21.6 & 49kB & 1s & 0.3ms \\  
- 2 & 1,403 & (0.1\%) & 11,556 & (1.0\%) & 8.2 & 264kB & 2s & 0.3ms \\  
- 3 & 11,556 & (1.0\%) & 50,712 & (4.5\%) & 4.4 & 1MB & 3s & 0.4ms \\
- 4 & 50,712 & (4.5\%) & 141,021 & (12.6\%) & 2.8 & 4MB & 5s & 0.5ms \\
- 5 & 141,021 & (12.6\%) & 283,313 & (25.4\%) & 2.0 & 9MB & 7s & 0.6ms \\
- 7 & 447,352 & (40.1\%) & 609,659 & (54.7\%) & 1.4 & 26MB & 16s & 0.9ms \\
- 10 & 858,920 & (77.0\%) & 937,254 & (84.0\%) & 1.1 & 50MB & 35s & 1.0ms \\  
- 12 & 991,391 & (88.9\%) & 1,027,857 & (92.2\%) & 1.0 & 63MB & 51s & 1.2ms \\
- 15 & 1,069,423 & (95.9\%) & 1,081,060 & (96.9\%) & 1.0 & 78MB & 74s & 3.0ms \\  
- 20 & 1,103,358 & (98.9\%) & 1,106,345 & (99.2\%) & 1.0 & 101MB & 144s & 13.8ms \\  
+% $B$ & \# prefixes & ($r(B)$) & \# patterns & ($s(B)$) & avg $\tau$ & min space & parse time & gen time \\ \hline
+% 1 & 65 & (0.0\%) & 1,403 & (0.1\%) & 21.6 & 49kB & 1s & 0.3ms \\  
+% 2 & 1,403 & (0.1\%) & 11,556 & (1.0\%) & 8.2 & 264kB & 2s & 0.3ms \\  
+% 3 & 11,556 & (1.0\%) & 50,712 & (4.5\%) & 4.4 & 1MB & 3s & 0.4ms \\
+% 4 & 50,712 & (4.5\%) & 141,021 & (12.6\%) & 2.8 & 4MB & 5s & 0.5ms \\
+% 5 & 141,021 & (12.6\%) & 283,313 & (25.4\%) & 2.0 & 9MB & 7s & 0.6ms \\
+% 7 & 447,352 & (40.1\%) & 609,659 & (54.7\%) & 1.4 & 26MB & 16s & 0.9ms \\
+% 10 & 858,920 & (77.0\%) & 937,254 & (84.0\%) & 1.1 & 50MB & 35s & 1.0ms \\  
+% 12 & 991,391 & (88.9\%) & 1,027,857 & (92.2\%) & 1.0 & 63MB & 51s & 1.2ms \\
+% 15 & 1,069,423 & (95.9\%) & 1,081,060 & (96.9\%) & 1.0 & 78MB & 74s & 3.0ms \\  
+% 20 & 1,103,358 & (98.9\%) & 1,106,345 & (99.2\%) & 1.0 & 101MB & 144s & 13.8ms \\  \hline
+ $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & avg $\tau$ & min space & parse time & gen time \\ \hline
+ 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 49kB & 1s & 0.3ms \\  
+ 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 264kB & 2s & 0.3ms \\  
+ 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 1MB & 3s & 0.4ms \\
+ 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 4MB & 5s & 0.5ms \\
+ 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 9MB & 7s & 0.6ms \\
+ 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 26MB & 16s & 0.9ms \\
+ 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 50MB & 35s & 1.0ms \\  
+ 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 63MB & 51s & 1.2ms \\
+ 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 78MB & 74s & 3.0ms \\  
+ 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 101MB & 144s & 13.8ms \\  \hline
+
 \end{tabular}
 \end{center}
+Note the ``gen time'' is a time per token drawn with 10k draws. 
 
-With 1-token prefixes (bigrams) the  and quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$; but the generative output from such a sparse model is, of course, unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``most'' (77\% and 88.9\% respectively) of the possible prefixes. The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. Note that this is a lower limit on how long our prefixes should probably be: by design every prefix will have at least one successor, so if we have (even on average) a single successor per prefix we have probably captured all there is to capture with (C)EFs. 
+With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$, we definitely have far fewer successors than ``random'' ($22 ~ T/3$). Still the generative output from such a sparse model is expectedly and unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively). The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have at least one successor, so if we have (even on average) a single successor per prefix we have probably captured all there is to capture from prefix sequences. 
 
 
 

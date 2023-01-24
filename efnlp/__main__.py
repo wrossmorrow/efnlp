@@ -98,16 +98,16 @@ def cli() -> argparse.Namespace:
 
 
 def since(started: dt) -> float:
-    return (dt.now()-started).total_seconds()
+    return (dt.now() - started).total_seconds()
 
 
 class TimedPrinter:
-
     def __init__(self) -> None:
         self._started = dt.now()
 
     def __call__(self, msg: str) -> None:
         print(f"[{dt.now().isoformat()} | {since(self._started):.6f}s] {msg}")
+
 
 if __name__ == "__main__":
 
@@ -123,12 +123,12 @@ if __name__ == "__main__":
         data = f.read()
 
     if args.verbose:
-        _print(f"Forming (character) language")
+        _print("Forming (character) language")
 
     L = CharLanguage.from_corpus(data)
 
     if args.verbose:
-        _print(f"Encoding corpus in the language constructed")
+        _print("Encoding corpus in the language constructed")
 
     C = L.encode(data)
 
@@ -144,22 +144,22 @@ if __name__ == "__main__":
     Ct, Cv = (C[:Sp], C[(Sp - B - 1) :]) if args.split < 1.0 else (C, [])
 
     if args.verbose:
-        _print(f"Parsing prefix/successor tokens")
+        _print("Parsing prefix/successor tokens")
 
     S = SuffixTreeSet(L.size)
     for i in range(B, N - 1):
         S.parse(C[i - B : i], C[i])
 
     if args.verbose:
-        _print(f"Parsed prefixes and successors in corpus")
+        _print("Parsed prefixes and successors in corpus")
         prefix_count = len(S.prefixes())
-        pop = 100.0 * prefix_count / (N-B-1) # exclude last element
+        pop = 100.0 * prefix_count / (N - B - 1)  # exclude last element
         _print(f"Found {prefix_count:,} prefixes ({pop:.1f}% of possible)")
         pattern_count = len(S.patterns())
-        pop = 100.0 * pattern_count / (N-B-1) # exclude last element
+        pop = 100.0 * pattern_count / (N - B - 1)  # exclude last element
         _print(f"Found {pattern_count:,} patterns ({pop:.1f}% of possible)")
 
-        _print(f"Normalizing to empirical frequencies")
+        _print("Normalizing to empirical frequencies")
 
     S.normalize()
 
@@ -169,8 +169,7 @@ if __name__ == "__main__":
         mem_d = int(mem / 8)
         mem_f = int(mem / 4)
         _print(
-            f"Memory (roughly) required: {mem_mb:.3} "
-            f"MB (about {mem_d:,} dbl, {mem_f:,} fl)"
+            f"Memory (roughly) required: {mem_mb:.3} " f"MB (about {mem_d:,} dbl, {mem_f:,} fl)"
         )
 
     if Cv:
@@ -203,5 +202,5 @@ if __name__ == "__main__":
             with open(args.output, "w") as f:
                 f.write(shake)
         else:
-            _print(f"Results: ")
+            _print("Generated results: ")
             print(shake)

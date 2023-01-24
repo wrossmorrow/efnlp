@@ -1,0 +1,11 @@
+
+all: preproc compile run
+
+preproc:
+	cmake CMakeLists.txt
+
+compile:
+	make
+
+run *FLAGS:
+	./efnlp {{FLAGS}}
