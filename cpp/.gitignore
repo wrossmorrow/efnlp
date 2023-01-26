@@ -4,7 +4,7 @@ CMakeFiles
 *.cmake
 
 # don't commit deps
-/_deps
+_deps
 
 # don't commit binary
 efnlp
