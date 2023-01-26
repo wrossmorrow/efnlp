@@ -43,12 +43,12 @@ func (c *EFNLPClient) GetValidText() (*efnlp.GetValidTextResponse, error) {
 
 	req := efnlp.GetValidTextRequest{}
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	resp, err := (c.svc).GetValidText(context.Background(), &req)
 	if err != nil {
@@ -74,12 +74,12 @@ func (c *EFNLPClient) IsValidText(
 
 	req := efnlp.IsValidTextRequest{Text: text}
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	resp, err := (c.svc).IsValidText(context.Background(), &req)
 	if err != nil {
@@ -104,12 +104,12 @@ func (c *EFNLPClient) GetModelBlockSize() (*efnlp.GetModelBlockSizeResponse, err
 
 	req := efnlp.GetModelBlockSizeRequest{}
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	resp, err := (c.svc).GetModelBlockSize(context.Background(), &req)
 	if err != nil {
@@ -143,12 +143,12 @@ func (c *EFNLPClient) GenerateBatch(
 		Instrument: instrument,
 	}
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	resp, err := (c.svc).GenerateBatch(context.Background(), &req)
 	if err != nil {
@@ -183,12 +183,12 @@ func (c *EFNLPClient) GenerateStream(
 		Instrument: instrument,
 	}
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	stream, err := (c.svc).GenerateStream(context.Background(), &req)
 	if err != nil {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-    "fmt"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"time"
@@ -99,12 +99,12 @@ func (s EFNLPService) GetValidText(
 	req *efnlp.GetValidTextRequest,
 ) (*efnlp.GetValidTextResponse, error) {
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	keys := s.language.GetValidText() // []string; could we pass in reference to resp.Text?
 	resp := efnlp.GetValidTextResponse{}
@@ -122,12 +122,12 @@ func (s EFNLPService) IsValidText(
 	req *efnlp.IsValidTextRequest,
 ) (*efnlp.IsValidTextResponse, error) {
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	return &efnlp.IsValidTextResponse{
 		Text:  req.Text,
@@ -141,17 +141,17 @@ func (s EFNLPService) GetModelBlockSize(
 	req *efnlp.GetModelBlockSizeRequest,
 ) (*efnlp.GetModelBlockSizeResponse, error) {
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	return &efnlp.GetModelBlockSizeResponse{
 		Size: blockSize,
 	}, nil
-    
+
 }
 
 func (s EFNLPService) GenerateBatch(
@@ -159,12 +159,12 @@ func (s EFNLPService) GenerateBatch(
 	req *efnlp.GenerateBatchRequest,
 ) (*efnlp.GenerateBatchResponse, error) {
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	var i uint32
 	resp := efnlp.GenerateBatchResponse{
@@ -233,12 +233,12 @@ func (s EFNLPService) GenerateStream(
 	stream efnlp.Generation_GenerateStreamServer,
 ) error {
 
-    // TODO: interceptor
-    err := req.Validate()
-    if err != nil {
-        msg := fmt.Sprintf("InvalidRequest: %v", err)
-        status.Error(codes.InvalidArgument, msg)
-    }
+	// TODO: interceptor
+	err := req.Validate()
+	if err != nil {
+		msg := fmt.Sprintf("InvalidRequest: %v", err)
+		status.Error(codes.InvalidArgument, msg)
+	}
 
 	// grpc uses one goroutine per method call, so we don't
 	// have to explicitly manage concurrency here

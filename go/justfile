@@ -7,5 +7,11 @@ codegen:
 build: codegen
     go build
 
-run *flags:
-    go run *.go {{flags}}
+run *FLAGS:
+    go run *.go {{FLAGS}}
+
+containerize IMAGE_TAG="local":
+    docker build . -t efnlp-go:{{IMAGE_TAG}}
+
+up *FLAGS:
+    docker-compose build && docker-compose up {{FLAGS}}
