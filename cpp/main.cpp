@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include <cstdlib>
+#include <cstdint>
 #include <cassert>
 #include <cerrno>
 #include <cmath>
@@ -17,12 +18,14 @@
 #include <vector>
 
 #include "spdlog/spdlog.h"
+#include "nlohmann/json.hpp"
 
 #include "efnlp.pb.h" // Note: path depends on cmake config
 
 #define PROTO_VERSION v1alpha1
 
 using namespace std; 
+using jsonpp = nlohmann::json;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
 
@@ -30,7 +33,7 @@ using namespace std;
 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-typedef int TokenType; // the internal type of a token
+typedef uint32_t TokenType; // the internal type of a token
 
 typedef std::chrono::high_resolution_clock Clock;
 
@@ -107,8 +110,8 @@ template <typename T> class Language {
 
 protected:
     int size;
-    map<T, TokenType> stot;
     map<TokenType, T> ttos;
+    map<T, TokenType> stot;
 
 public:
 
@@ -119,26 +122,22 @@ public:
             cout << "(" << t << "," << s << ")\n";
     }
 
-    string json() {
-        stringstream ss;
-        ss << "{";
-        for( auto const& [t, s]: ttos )
-            ss << t << ":\"" << s << "\",";
-            // how to not have trailing ","?
-        ss << "}";
-        return ss.str();
+    jsonpp json() {
+        jsonpp j;
+        j["lang"] = jsonpp(stot);
+        return j;
     }
 
-    efnlp::PROTO_VERSION::Language proto() {
-        efnlp::PROTO_VERSION::Language lang;
-        lang.set_name("CharLanguage");
-        for( auto const& [t, c] : ttos ) {
-            auto enc = lang.add_lang();
-            enc->set_token(t);
-            enc->set_data(&c); // TODO: ok for "bytes" type?
-        }
-        return lang;
-    }
+    // efnlp::PROTO_VERSION::Language proto() {
+    //     efnlp::PROTO_VERSION::Language lang;
+    //     lang.set_name("CharLanguage");
+    //     for( auto const& [t, c] : ttos ) {
+    //         auto enc = lang.add_lang();
+    //         enc->set_token(t);
+    //         enc->set_data(&c); // TODO: ok for "bytes" type?
+    //     }
+    //     return lang;
+    // }
 
     // encode/decode with [] operator
     TokenType& operator[](T c) { return stot[c]; };
@@ -176,7 +175,6 @@ public:
     CharLanguage(const string text) {
 
         map<char, int> lang;
-        vector<char> values;
 
         size = text.length();
 
@@ -189,20 +187,19 @@ public:
         }
 
         // lang has unique chars and their counts
+
+        vector<char> values;
         values.reserve(lang.size());
-        for( auto const& cs: lang ) {
-            values.push_back(cs.first);
-        }
+        for( auto const& [c, n] : lang )
+            values.push_back(c);
 
         // not needed with map read?
-        sort(values.begin(), values.end());
+        // sort(values.begin(), values.end());
 
         // construct encoder/decoder maps
         int i = 0;
-        for( auto v: values ) {
-            stot[v] = i;
-            ttos[i] = v;
-            i++;
+        for( auto const& v : values ) {
+            stot[v] = i; ttos[i] = v; i++;
         }
 
     }
@@ -215,17 +212,53 @@ public:
     CharLanguage(ifstream * in) { _read(in); }
 
     CharLanguage(const efnlp::PROTO_VERSION::Language * L) {
+        // templating: 
+        // 
+        //     map<TokenType, char> ttos;
+        //     map<char, TokenType> stot;
+        // 
         size = L->lang_size();
         for( auto i = 0 ; i < L->lang_size() ; i++ ) {
             auto enc = L->lang(i);
-            auto t = enc.token();
-            auto v = enc.data()[0]; // TODO: can't be "stable"
+            TokenType t = enc.token(); // uint32
+            char v = enc.data()[0]; // TODO: can't be "stable"?
             stot[v] = t;
             ttos[t] = v;
         }
     }
 
     ~CharLanguage() {} // do we need to delete maps? or handled... 
+
+    jsonpp json() {
+        jsonpp j;
+        vector<jsonpp> tmp;
+        tmp.reserve(stot.size());
+        for( auto const& [c, t] : stot ) {
+            cout << "  " << c << " : " << t << "\n";
+            jsonpp k;
+            k["data"] = c;
+            k["token"] = t;
+            tmp.push_back(k);
+        }
+        j["lang"] = jsonpp(tmp);
+        return j;
+    }
+
+    efnlp::PROTO_VERSION::Language proto() {
+        // templating: 
+        // 
+        //     map<TokenType, char> ttos;
+        //     map<char, TokenType> stot;
+        // 
+        efnlp::PROTO_VERSION::Language lang;
+        lang.set_name("CharLanguage");
+        for( auto const& [t, c] : ttos ) { // t: TokenType(uint32), c: char
+            auto enc = lang.add_lang();
+            enc->set_token(t);
+            enc->set_data(&c, 1); // add size, need char to be set as a const char * (array)
+        }
+        return lang;
+    }
 
     // C++ does not resolve overloaded methods with inheritance; if we
     // define a "string" method, we have to re-define here. 
@@ -507,15 +540,19 @@ public:
 
     int size() { return counts.size(); }
 
-    string json() {
-        stringstream ss;
-        ss << "{";
+    jsonpp json() {
+        jsonpp j;
+        j["total"] = total;
+        vector<jsonpp> tmp;
+        tmp.reserve(counts.size());
         for( auto const& [t, i] : locs ) {
-            ss << t << ":" << counts[i]/total << ",";
-            // how to not print extra ","?
+            jsonpp k;
+            k["token"] = t;
+            k["count"] = counts[i];
+            tmp.push_back(k);
         }
-        ss << "}";
-        return ss.str();
+        j["data"] = jsonpp(tmp);
+        return j;
     }
 
     efnlp::PROTO_VERSION::Sampler proto() {
@@ -622,16 +659,15 @@ public:
             c.render(L, h + "  ");
     }
 
-    string json() {
-        stringstream ss;
-        ss << "{";
-        ss << "\"token\":" << token << ",";
-        ss << "\"sampler\":" << sampler.json() << ",";
-        ss << "\"prefixes\":[";
+    jsonpp json() {
+        jsonpp j;
+        j["token"] = token;
+        j["sampler"] = sampler.json();
+        map<TokenType, jsonpp> tmp;
         for( auto [t, c] : prefixes ) 
-            ss << c.json() << ","; // how to not have trailing ","?
-        ss << "]}";
-        return ss.str();
+            tmp[t] = c.json();
+        j["prefixes"] = jsonpp(tmp);
+        return j;
     }
 
     efnlp::PROTO_VERSION::SuffixTree proto() {
@@ -746,15 +782,11 @@ public:
         }
     }
 
-    string json() {
-        stringstream ss;
-        ss << "{";
-        for( auto [t, tree] : prefixes ) {
-            ss << "\"" << t << "\":" << tree.json() << ",";
-            // how to not have trailing ","?
-        }
-        ss << "}";
-        return ss.str();
+    jsonpp json() {
+        jsonpp j;
+        for( auto [t, tree] : prefixes ) 
+            j["prefixes"][t] = tree.json();
+        return j;
     }
 
     efnlp::PROTO_VERSION::SuffixTreeSet proto() {
@@ -865,7 +897,7 @@ public:
 
 string readFile(ifstream * in) {
     string contents;
-    if(in) {
+    if( in ) {
         in->seekg(0, std::ios::end);
         contents.resize(in->tellg());
         in->seekg(0, ios::beg);
@@ -888,13 +920,13 @@ string readFile(string filename) {
 int main(int argc, char *argv[]) {
 
     int B = 5, G = 0, N;
-    bool prefixes = false, memory = false, verbose = true, dump = false;
+    bool stats = false, memory = false, verbose = true, dump = false, json = false;
     string filename, output, textprompt = " ";
 
     Timer timer = Timer();
 
     for(;;) {
-        switch( getopt(argc, argv, "c:b:g:p:o:dsmqh") ) {
+        switch( getopt(argc, argv, "c:b:g:p:o:djsmqh") ) {
 
             // options
             case 'c': filename = optarg; continue;
@@ -905,7 +937,8 @@ int main(int argc, char *argv[]) {
 
             // flags
             case 'd': dump = true; continue;
-            case 's': prefixes = true; continue;
+            case 'j': json = true; continue;
+            case 's': stats = true; continue;
             case 'm': memory = true; continue;
             case 'q': verbose = false; continue;
 
@@ -935,12 +968,17 @@ int main(int argc, char *argv[]) {
         cout << "  prompt: \"" << textprompt << "\"\n";
         cout << "  output: " << output << "\n";
         if( dump )
-            cout << "  dumping results\n";
+            cout << "  dumping results" << (json ? " as json" : " as proto") << "\n";
         cout << "\n";
     }
 
-    // file is read into memory once, with a double pass for finding
-    // the char language and another for encoding
+    // Input file is read into memory once, with a double pass for finding
+    // the char language and another for encoding. For very large files
+    // the extra IO of multiple file reads might be better... but also 
+    // we're presuming that we are parsing a CharLanguage from the text
+    // as well as estimating it's (C)EFs. A more "production" implement-
+    // ation would probably split those steps; or we could single-pass
+    // language construction and estimation with some re-org. 
 
     if( verbose ) 
         spdlog::info("Reading input file");
@@ -951,6 +989,12 @@ int main(int argc, char *argv[]) {
         spdlog::info("Timer:: Reading text us: {}", timer.toc_us());
 
     if( verbose ) 
+        if( stats )
+            spdlog::info(
+                "File is {} chars long ({:0.2f}MB)", 
+                text.length(), 4.0f*text.length()/1024.0f/1024.0f
+            );
+
         spdlog::info("Parsing language");
 
     timer.tic();
@@ -960,30 +1004,48 @@ int main(int argc, char *argv[]) {
 
     if( dump ) {
 
-        if( verbose )
-            spdlog::info("Serializing parsed language to protobuf");
+        if( json ) {
 
-        timer.tic();
-        auto L_proto = L.proto();
-        if( verbose ) 
-            spdlog::info("Timer:: Protobuf serialization us: {:}", timer.toc_us());
+            if( verbose )
+                spdlog::info("Serializing parsed language to JSON");
 
-        ofstream ofs("language.proto.bin", ios_base::out | ios_base::binary);
-        L_proto.SerializeToOstream(&ofs);
-        ofs.close();
-
-        efnlp::PROTO_VERSION::Language CL_proto;
-
-        ifstream in("language.proto.bin", ios::in | ios::binary);
-        if( !CL_proto.ParseFromIstream(&in) ) {
-            spdlog::info("Failed to deserialize written protobuf data");
-        } else {
             timer.tic();
-            CharLanguage CL = CharLanguage(&CL_proto);
+            auto j = L.json();
             if( verbose ) 
-                spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+                spdlog::info("Timer:: JSON serialization us: {:}", timer.toc_us());
+
+            ofstream ofs("language.json", ios_base::out);
+            ofs << j;
+            ofs.close();
+
+        } else {
+
+            if( verbose )
+                spdlog::info("Serializing parsed language to protobuf");
+
+            timer.tic();
+            auto L_proto = L.proto();
+            if( verbose ) 
+                spdlog::info("Timer:: Protobuf serialization us: {:}", timer.toc_us());
+
+            ofstream ofs("language.proto.bin", ios_base::out | ios_base::binary);
+            L_proto.SerializeToOstream(&ofs);
+            ofs.close();
+
+            efnlp::PROTO_VERSION::Language CL_proto;
+
+            ifstream in("language.proto.bin", ios::in | ios::binary);
+            if( !CL_proto.ParseFromIstream(&in) ) {
+                spdlog::error("Failed to deserialize written protobuf data");
+            } else {
+                timer.tic();
+                CharLanguage CL = CharLanguage(&CL_proto);
+                if( verbose ) 
+                    spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+            }
+            in.close();
+
         }
-        in.close();
 
     }
 
@@ -998,7 +1060,8 @@ int main(int argc, char *argv[]) {
     N = C.length();
 
     if( verbose ) 
-        spdlog::info("Stats:: Corpus is {} tokens long", N);
+        if( stats )
+            spdlog::info("Stats:: Corpus is {} tokens long", N);
         spdlog::info("Parsing suffix tree");
 
     timer.tic();
@@ -1013,34 +1076,52 @@ int main(int argc, char *argv[]) {
 
     if( dump ) {
 
-        if( verbose )
-            spdlog::info("Serializing parsed data to protobuf");
+        if( json ) {
 
-        timer.tic();
-        auto S_proto = S.proto();
-        if( verbose ) 
-            spdlog::info("Timer:: Protobuf serialization ms: {:}", timer.toc_ms());
+            if( verbose )
+                spdlog::info("Serializing parsed suffix tree to JSON");
 
-        ofstream ofs("model.proto.bin", ios_base::out | ios_base::binary);
-        S_proto.SerializeToOstream(&ofs);
-        ofs.close();
-
-        efnlp::PROTO_VERSION::SuffixTreeSet ST_proto;
-
-        ifstream in("model.proto.bin", ios::in | ios::binary);
-        if( !ST_proto.ParseFromIstream(&in) ) {
-            spdlog::info("Failed to deserialize written protobuf data");
-        } else {
             timer.tic();
-            SuffixTreeSet ST = SuffixTreeSet(&L, &ST_proto);
+            auto j = S.json();
             if( verbose ) 
-                spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+                spdlog::info("Timer:: JSON serialization us: {:}", timer.toc_us());
+
+            ofstream ofs("model.json", ios_base::out);
+            ofs << j;
+            ofs.close();
+
+        } else {
+
+            if( verbose )
+                spdlog::info("Serializing parsed data to protobuf");
+
+            timer.tic();
+            auto S_proto = S.proto();
+            if( verbose ) 
+                spdlog::info("Timer:: Protobuf serialization ms: {:}", timer.toc_ms());
+
+            ofstream ofs("model.proto.bin", ios_base::out | ios_base::binary);
+            S_proto.SerializeToOstream(&ofs);
+            ofs.close();
+
+            efnlp::PROTO_VERSION::SuffixTreeSet ST_proto;
+
+            ifstream in("model.proto.bin", ios::in | ios::binary);
+            if( !ST_proto.ParseFromIstream(&in) ) {
+                spdlog::info("Failed to deserialize written protobuf data");
+            } else {
+                timer.tic();
+                SuffixTreeSet ST = SuffixTreeSet(&L, &ST_proto);
+                if( verbose ) 
+                    spdlog::info("Timer:: Deserialized proto ms: {:}", timer.toc_ms());
+            }
+            in.close();
+
         }
-        in.close();
 
     }
 
-    if( prefixes && verbose ) {
+    if( stats && verbose ) {
 
         int c;
 

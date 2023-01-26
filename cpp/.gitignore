@@ -3,6 +3,9 @@ CMakeCache.txt
 CMakeFiles
 *.cmake
 
+# don't commit deps
+/_deps
+
 # don't commit binary
 efnlp
 
@@ -10,7 +13,8 @@ efnlp
 *.pb.h
 *.pb.cc
 
-# don't commit written proto
+# don't commit written proto or json
 *.proto.bin
+*.json
 
 sample-results.txt

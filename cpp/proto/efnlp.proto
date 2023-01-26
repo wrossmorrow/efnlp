@@ -5,19 +5,33 @@ package efnlp.v1alpha1;
 option go_package = "github.com/wrossmorrow/efnlp/v1alpha1;efnlp_v1alpha1";
 
 message Version {
-	int32 major = 1;
-	int32 minor = 2;
+	uint32 major = 1;
+	uint32 minor = 2;
 }
 
 message Language {
+	// A "language" specifies how to convert (utf-8?) character sequences into 
+	// "token" sequences. A "token" is just a uint32. Here, we use a list of 
+	// "Encoder" objects that map 
 	string name = 1;
 	Version version = 2;
 	repeated Encoder lang = 3;
 }
 
 message Encoder {
-	int32 token = 1;
-	bytes data = 2;
+	uint32 token = 1;
+	string data = 2; // utf-8 or 7b ASCII text less than 2**32 units long (~ 4B chars)
+
+	// More general?
+	// oneof data {
+	// 	uint8 char = 3; // 8 doesn't exist, just 32, 64
+	// 	string str = 4;
+	// 	bytes bin = 5
+	// }
+}
+
+message Token {
+	uint32 value = 1;
 }
 
 message Sampler {
@@ -25,12 +39,12 @@ message Sampler {
 }
 
 message SamplerToken {
-	int32 token = 1;
+	uint32 token = 1; // uint32
 	double prob = 2;
 }
 
 message SuffixTree {
-	int32 token = 1;
+	uint32 token = 1;  // uint32
 	Sampler sampler = 2;
 	repeated SuffixTree prefixes = 3;
 }

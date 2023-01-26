@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package efnlp.v1alpha1;
+
+option go_package = "github.com/wrossmorrow/efnlp/v1alpha1;efnlp_v1alpha1";
+
+import "validate/validate.proto";
+
+service Generation {
+
+	rpc GetValidText(GetValidTextRequest) returns (GetValidTextResponse) {}
+	rpc IsValidText(IsValidTextRequest) returns (IsValidTextResponse) {}
+
+	// sending prompts larger than the 
+	rpc GetModelBlockSize(GetModelBlockSizeRequest) returns (GetModelBlockSizeResponse) {}
+
+	rpc GenerateBatch(GenerateBatchRequest) returns (GenerateBatchResponse) {}
+	rpc GenerateStream(GenerateStreamRequest) returns (stream GenerateStreamResponse) {}
+
+}
+
+message GetValidTextRequest {}
+
+message GetValidTextResponse {
+	repeated string text = 1 [
+  	(validate.rules).repeated = {
+  		min_items: 1, 
+  		items: {
+	  		string: {
+	  			min_len: 1
+	  		}
+  		}
+  	}
+  ];
+}
+
+message IsValidTextRequest {
+	string text = 1 [
+  	(validate.rules).string = {min_len: 1}
+  ];
+}
+
+message IsValidTextResponse {
+	string text = 1 [
+  	(validate.rules).string = {min_len: 1}
+  ];
+  bool valid = 2;
+}
+
+message GetModelBlockSizeRequest {}
+
+message GetModelBlockSizeResponse {
+	uint32 size = 1;
+}
+
+message GenerateBatchRequest {
+	
+  string account_id = 1 [ // from login? what login?
+  	(validate.rules).string = {uuid: true, ignore_empty: true}
+  ];
+
+	Prompt prompt = 2; // the prompt to use in generation
+	uint32 batch_size = 3; // the number of tokens to draw
+	uint32 samples = 4 [ // the number of iid samples to draw
+  	(validate.rules).uint32 = {lte: 10}
+	]; 
+	bool instrument = 5; // return any statistics
+
+}
+
+message GenerateBatchResponse {	
+
+	Prompt prompt = 1; // the prompt to use in generation
+	uint32 batch_size = 2; // the number of tokens to draw
+	uint32 samples = 3; // samples drawn
+
+	// len == `samples` array of iid samples
+	repeated string result = 4 [
+  	(validate.rules).repeated = {
+  		items: {
+  			string: {min_len: 1}
+  		}
+  	}
+  ];
+
+  Statistics stats = 5; // if instrumented
+
+}
+
+message GenerateStreamRequest {
+
+  string account_id = 1 [ // from login? what login?
+  	(validate.rules).string = {uuid: true, ignore_empty: true}
+  ];
+
+  Prompt prompt = 2 [ // the prompt to use in generation
+  	(validate.rules).message.required = true
+  ];
+
+	uint32 batch_size = 3 [ // the number of tokens to draw for each response
+		(validate.rules).uint32 = {gte: 1, lte: 262144} // O(1MB)
+	];
+
+	uint32 max_batches = 4 [ // maximum number of batches to send
+		(validate.rules).uint32 = {gte: 0, lte: 1000} // 0 == "forever"?
+	];
+
+	bool instrument = 5; // return any statistics
+
+}
+
+message GenerateStreamResponse {
+
+	string result = 1 [ // (streaming) a single gen sample (of `tokens` tokens)
+  	(validate.rules).string = {min_len: 1}
+  ];
+
+  Statistics stats = 2; // if instrumented
+
+}
+
+message Prompt {
+	oneof value {
+		option (validate.required) = true;
+
+		string text = 1 [ // text (utf-8) string (validate with min/max bytes instead?)
+	  	(validate.rules).string = {min_len: 1, max_len: 1048}
+	  ];
+
+		bytes utf8 = 2 [ // explicit utf-8 byte string (expect unused?)
+	  	(validate.rules).bytes = {min_len: 1, max_len: 4192}
+	  ];
+
+	  TokenString tokens = 3; // raw tokens (sent, say, by another server)
+	}
+}
+
+message TokenString {
+	repeated uint32 tokens = 1 [ // actual token string
+  	(validate.rules).repeated = {min_items: 1, max_items: 1048}
+  ];
+}
+
+message Statistics {
+	int64 gen_time_ns = 1; // total ns in generation
+	double gen_freq_ns = 2; // ns/token
+}

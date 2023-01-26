@@ -1,0 +1,15 @@
+version: v1
+plugins:
+  - plugin: go
+    out: gen
+    opt: paths=source_relative
+  - plugin: go-grpc
+    out: gen
+    opt: paths=source_relative
+  - plugin: validate
+    out: gen
+    opt: 
+      - lang=go
+      - paths=source_relative
+  # - name: openapiv2
+  #   out: gen/openapi

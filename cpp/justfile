@@ -1,5 +1,9 @@
+default:
+    just --list
 
-all: preproc compile run
+name := "efnlp"
+
+all: build run
 
 preproc:
 	cmake CMakeLists.txt
@@ -9,6 +13,8 @@ codegen:
 
 compile:
 	make
+
+build: preproc compile
 
 run *FLAGS:
 	./efnlp {{FLAGS}}
