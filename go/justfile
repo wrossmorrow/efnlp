@@ -3,3 +3,9 @@
 codegen:
     buf -v generate buf.build/envoyproxy/protoc-gen-validate \
     && buf -v generate --include-imports
+
+build: codegen
+    go build
+
+run *flags:
+    go run *.go {{flags}}
