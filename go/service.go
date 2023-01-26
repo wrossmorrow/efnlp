@@ -16,6 +16,13 @@ import (
 
 const blockSize = 10
 
+func MaxInt(a int, b int) int {
+	if a <= b {
+		return b
+	}
+	return a
+}
+
 type EFNLPServiceConfig struct {
 	languageFilename string
 	modelFilename    string
@@ -259,7 +266,8 @@ func (s EFNLPService) GenerateStream(
 				)
 				return err
 			}
-			gen, err := s.language.Decode(seq) // string
+			fp := MaxInt(len(p), blockSize)
+			gen, err := s.language.Decode(seq[fp:]) // string
 			if err != nil {
 
 			}
@@ -286,7 +294,8 @@ func (s EFNLPService) GenerateStream(
 				)
 				return err
 			}
-			gen, err := s.language.Decode(seq) // string
+			fp := MaxInt(len(p), blockSize)
+			gen, err := s.language.Decode(seq[fp:]) // string
 			if err != nil {
 
 			}
