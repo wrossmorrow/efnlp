@@ -2,30 +2,17 @@ package main
 
 import (
 	"errors"
-	// "context"
-	// "io/ioutil"
-	// "log"
-	// "sync"
 	"math/rand"
 	"unsafe"
 
-	"crypto/sha1"
-	// "golang.org/x/crypto/blake2b"
-	"encoding/hex"
-
-	// "google.golang.org/protobuf/proto"
+	aws "github.com/aws/aws-sdk-go/aws"
+	proto "google.golang.org/protobuf/proto"
 
 	efnlp "github.com/wrossmorrow/efnlp/gen"
 )
 
 type TokenType uint32
 type ProbType float64
-
-func hashUTF8(str []byte) string {
-	// h := blake2b.Sum256(str) // longer strings; faster?
-	h := sha1.Sum(str)
-	return hex.EncodeToString(h[:])
-}
 
 type Language struct {
 	size int32 // uint32
@@ -51,7 +38,26 @@ type SuffixTreeSet struct {
 	prefixes map[TokenType]SuffixTree
 }
 
-func (l *Language) Initialize(P *efnlp.Language) error {
+func (l *Language) FromFileOrS3(
+	filename string,
+	awsconf *aws.Config,
+) error {
+
+	data, err := BytesFromFileOrS3(filename, awsconf)
+	if err != nil {
+		return err
+	}
+
+	lang := &efnlp.Language{}
+	if err := proto.Unmarshal(data, lang); err != nil {
+		return err
+	}
+	l.FromProto(lang)
+
+	return nil
+}
+
+func (l *Language) FromProto(P *efnlp.Language) error {
 	l.size = int32(len(P.Lang)) // TODO: fix
 	l.ttos = make(map[TokenType]string)
 	l.stot = make(map[string]TokenType)
@@ -161,7 +167,7 @@ func (l *Language) Decode(seq []TokenType) (string, error) {
 	return r, nil
 }
 
-func (s *Sampler) Initialize(P *efnlp.Sampler) error {
+func (s *Sampler) FromProto(P *efnlp.Sampler) error {
 	s.total = 1.0 // TODO: abstracted type safe?
 	s.counts = make([]ProbType, len(P.Data))
 	s.locs = make(map[TokenType]int)
@@ -195,14 +201,14 @@ func (s *Sampler) Probability(t TokenType) ProbType {
 	return s.counts[idx] / s.total
 }
 
-func (s *SuffixTree) Initialize(P *efnlp.SuffixTree) error {
+func (s *SuffixTree) FromProto(P *efnlp.SuffixTree) error {
 	s.token = TokenType(P.Token)
 	s.sampler = Sampler{}
-	s.sampler.Initialize(P.Sampler)
+	s.sampler.FromProto(P.Sampler)
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
-		T.Initialize(P.Prefixes[i])
+		T.FromProto(P.Prefixes[i])
 		s.prefixes[T.token] = T
 	}
 	return nil
@@ -230,12 +236,31 @@ func (s *SuffixTree) Sample(p []TokenType) (TokenType, error) {
 	return v.Sample(p[:len(p)-1])
 }
 
-func (s *SuffixTreeSet) Initialize(P *efnlp.SuffixTreeSet) error {
+func (s *SuffixTreeSet) FromFileOrS3(
+	filename string,
+	awsconf *aws.Config,
+) error {
+
+	data, err := BytesFromFileOrS3(filename, awsconf)
+	if err != nil {
+		return err
+	}
+
+	sfxs := &efnlp.SuffixTreeSet{}
+	if err := proto.Unmarshal(data, sfxs); err != nil {
+		return err
+	}
+	s.FromProto(sfxs)
+
+	return nil
+}
+
+func (s *SuffixTreeSet) FromProto(P *efnlp.SuffixTreeSet) error {
 	s.size = int32(len(P.Prefixes))
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
-		T.Initialize(P.Prefixes[i])
+		T.FromProto(P.Prefixes[i])
 		s.prefixes[T.token] = T
 	}
 	return nil

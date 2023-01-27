@@ -1,4 +1,6 @@
 
+format:
+    go fmt
 
 codegen:
     buf -v generate buf.build/envoyproxy/protoc-gen-validate \

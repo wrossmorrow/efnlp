@@ -14,7 +14,7 @@ efnlp
 *.pb.cc
 
 # don't commit written proto or json
-*.proto.bin
-*.json
+*.proto.bin*
+*.json.*
 
 sample-results.txt

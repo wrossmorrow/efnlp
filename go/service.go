@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"strings"
 	"time"
 
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	proto "google.golang.org/protobuf/proto"
 
 	efnlp "github.com/wrossmorrow/efnlp/gen"
 )
@@ -49,44 +49,43 @@ func (s *EFNLPService) Initialize(verbose bool) error {
 	// of language and model into struct we will actually serve
 
 	{
-
-		in, err := ioutil.ReadFile(s.config.languageFilename)
-		if err != nil {
-			log.Fatalf("Error reading language file: %v", err)
+		if strings.HasSuffix(s.config.languageFilename, "/") {
+			return errors.New("Filenames can't end with \"/\"")
 		}
 
-		lang := &efnlp.Language{}
-		if err := proto.Unmarshal(in, lang); err != nil {
+		// if languageFilename starts with s3:// ... assume
+		// passed string is like
+		//
+		// 		s3://{bucket}[/{prefix}]/{filename}
+		//
+		// and we need to download and store in `filename`
+
+		s.language = &Language{}
+		err := s.language.FromFileOrS3(s.config.languageFilename, nil)
+		if err != nil {
 			log.Fatalf("Failed to parse language: %v", err)
 		}
 
-		s.language = &Language{}
-		s.language.Initialize(lang)
-
 		if verbose {
 			log.Println("Read language into memory")
-			// log.Printf("Language: %v", s.language)
+			log.Printf("Language: %v", s.language)
 		}
 
 	} // TODO: verify efnlp.Language is deallocated after
 
 	{
-
-		in, err := ioutil.ReadFile(s.config.modelFilename)
-		if err != nil {
-			log.Fatalf("Error reading model file: %v", err)
-		}
-
-		mdl := &efnlp.SuffixTreeSet{}
-		if err := proto.Unmarshal(in, mdl); err != nil {
-			log.Fatalf("Failed to parse model: %v", err)
+		if strings.HasSuffix(s.config.modelFilename, "/") {
+			return errors.New("Filenames can't end with \"/\"")
 		}
 
 		s.model = &SuffixTreeSet{}
-		s.model.Initialize(mdl)
+		err := s.model.FromFileOrS3(s.config.modelFilename, nil)
+		if err != nil {
+			log.Fatalf("Failed to parse model: %v", err)
+		}
 
 		if verbose {
-			log.Printf("Read model into memory")
+			log.Println("Read model into memory")
 		}
 
 	} // TODO: verify efnlp.SuffixTreeSet is deallocated after

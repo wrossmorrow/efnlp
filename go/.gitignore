@@ -2,3 +2,5 @@ gen
 
 # don't commit binary
 efnlp
+
+*.proto.bin*

@@ -60,7 +60,7 @@ func main() {
 
 			resp, err := C.IsValidText("a")
 			if err != nil {
-				log.Fatalf("Failed to validate text: %w", err)
+				log.Fatalf("Failed to validate text: %v", err)
 			}
 			if resp.Valid {
 				log.Printf("Successfully validated text: %v", resp)
@@ -70,7 +70,7 @@ func main() {
 
 			resp, err = C.IsValidText("!")
 			if err != nil {
-				log.Fatalf("Failed to validate text: %w", err)
+				log.Fatalf("Failed to validate text: %v", err)
 			}
 			if resp.Valid {
 				log.Printf("Successfully validated text: %v", resp)
@@ -80,7 +80,7 @@ func main() {
 
 			resp, err = C.IsValidText("0")
 			if err != nil {
-				log.Fatalf("Failed to validate text: %w", err)
+				log.Fatalf("Failed to validate text: %v", err)
 			}
 			if resp.Valid {
 				log.Printf("Successfully validated text: %v", resp)
@@ -93,7 +93,7 @@ func main() {
 			log.Println("Get model block size")
 			resp, err := C.GetModelBlockSize()
 			if err != nil {
-				log.Fatalf("Failed to get model block size: %w", err)
+				log.Fatalf("Failed to get model block size: %v", err)
 			}
 			log.Printf("Successfully got model block size: %v", resp)
 		}
@@ -102,7 +102,7 @@ func main() {
 			log.Println("Attempting to batch generate text")
 			resp, err := C.GenerateBatch("\n", 1000, 10, true)
 			if err != nil {
-				log.Fatalf("Failed to batch generate text: %w", err)
+				log.Fatalf("Failed to batch generate text: %v", err)
 			}
 			log.Printf("Successfully batch generated text: %v", resp)
 		}
@@ -111,7 +111,7 @@ func main() {
 			log.Println("Attempting to stream generated text")
 			err := C.GenerateStream("\n", 100, 10, true)
 			if err != nil {
-				log.Fatalf("Failed to stream generate text: %w", err)
+				log.Fatalf("Failed to stream generate text: %v", err)
 			}
 			log.Printf("Successfully streamed generated text")
 
@@ -126,7 +126,10 @@ func main() {
 			verbose:          verbose,
 		}
 		service := EFNLPService{config: &conf}
-		service.Initialize(verbose)
+		err := service.Initialize(verbose)
+		if err != nil {
+			log.Fatalf("Server initialization failed: %v", err)
+		}
 		Serve(*port, 100, service)
 
 	}
