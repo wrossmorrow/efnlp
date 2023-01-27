@@ -17,12 +17,12 @@ services:
     hostname: efnlp
     image: efnlp-go:${IMAGE_TAG:-compose}
     build:
-      context: .
+      context: go
       dockerfile: Dockerfile
     ports:
       - '50051:50051'
     volumes:
-      - ../cpp:/app/data
+      - cpp:/app/data
     environment:
       - LOG_LEVEL=info
     command:

@@ -46,7 +46,7 @@ func (s *EFNLPService) Initialize(verbose bool) error {
 	// if languageFilename starts with s3:// ... assume
 	// passed string is like
 	//
-	// 		s3://{bucket}[/{prefix}]/{filename}
+	//      s3://{bucket}[/{prefix}]/{filename}
 	//
 	// and we need to download and store in `filename`
 
@@ -82,7 +82,9 @@ func (s EFNLPService) GetValidText(
 	req *efnlp.GetValidTextRequest,
 ) (*efnlp.GetValidTextResponse, error) {
 
-	// TODO: interceptor
+	// TODO: logging interceptor
+
+	// TODO: request validation interceptor
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
@@ -105,7 +107,9 @@ func (s EFNLPService) IsValidText(
 	req *efnlp.IsValidTextRequest,
 ) (*efnlp.IsValidTextResponse, error) {
 
-	// TODO: interceptor
+	// TODO: logging interceptor
+
+	// TODO: request validation interceptor
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
@@ -124,7 +128,9 @@ func (s EFNLPService) GetModelBlockSize(
 	req *efnlp.GetModelBlockSizeRequest,
 ) (*efnlp.GetModelBlockSizeResponse, error) {
 
-	// TODO: interceptor
+	// TODO: logging interceptor
+
+	// TODO: request validation interceptor
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
@@ -142,7 +148,9 @@ func (s EFNLPService) GenerateBatch(
 	req *efnlp.GenerateBatchRequest,
 ) (*efnlp.GenerateBatchResponse, error) {
 
-	// TODO: interceptor
+	// TODO: logging interceptor
+
+	// TODO: request validation interceptor
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
@@ -167,47 +175,28 @@ func (s EFNLPService) GenerateBatch(
 
 	blockSize := s.model.GetDepth()
 
-	if req.Instrument {
-
-		stats := efnlp.Statistics{}
-		for i = 0; i < req.Samples; i++ {
-			start := time.Now()
-			seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
-			if err != nil {
-				err := status.Error(
-					codes.Internal,
-					"There was an unexpected issue generating text",
-				)
-				return nil, err
-			}
-			gen, err := s.language.Decode(seq) // string
-			if err != nil {
-
-			}
-			stats.GenTimeNs += time.Since(start).Nanoseconds()
-			resp.Result = append(resp.Result, gen) // []string
+	stats := efnlp.Statistics{}
+	for i = 0; i < req.Samples; i++ {
+		start := time.Now()
+		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
+		if err != nil {
+			err := status.Error(
+				codes.Internal,
+				"There was an unexpected issue generating text",
+			)
+			return nil, err
 		}
+		gen, err := s.language.Decode(seq) // string
+		if err != nil {
+
+		}
+		stats.GenTimeNs += time.Since(start).Nanoseconds()
+		resp.Result = append(resp.Result, gen) // []string
+	}
+
+	if req.Instrument {
 		stats.GenFreqNs = float64(stats.GenTimeNs) / float64(req.BatchSize*req.Samples)
 		resp.Stats = &stats
-
-	} else {
-
-		for i = 0; i < req.Samples; i++ {
-			seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
-			if err != nil {
-				err := status.Error(
-					codes.Internal,
-					"There was an unexpected issue generating text",
-				)
-				return nil, err
-			}
-			gen, err := s.language.Decode(seq) // string
-			if err != nil {
-
-			}
-			resp.Result = append(resp.Result, gen) // []string
-		}
-
 	}
 
 	return &resp, nil
@@ -218,7 +207,9 @@ func (s EFNLPService) GenerateStream(
 	stream efnlp.Generation_GenerateStreamServer,
 ) error {
 
-	// TODO: interceptor
+	// TODO: logging interceptor
+
+	// TODO: request validation interceptor
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
@@ -239,61 +230,35 @@ func (s EFNLPService) GenerateStream(
 
 	blockSize := s.model.GetDepth()
 
-	if req.Instrument {
+	for i := uint32(0); i < req.MaxBatches; i++ {
 
-		for i := uint32(0); i < req.MaxBatches; i++ {
+		stats := efnlp.Statistics{}
+		start := time.Now()
+		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
+		if err != nil {
+			err := status.Error(
+				codes.Internal,
+				"There was an unexpected issue generating text",
+			)
+			return err
+		}
+		fp := MaxInt(len(p), int(blockSize))
+		gen, err := s.language.Decode(seq[fp:]) // string
+		if err != nil {
 
-			stats := efnlp.Statistics{}
-			start := time.Now()
-			seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
-			if err != nil {
-				err := status.Error(
-					codes.Internal,
-					"There was an unexpected issue generating text",
-				)
-				return err
-			}
-			fp := MaxInt(len(p), int(blockSize))
-			gen, err := s.language.Decode(seq[fp:]) // string
-			if err != nil {
+		}
 
-			}
+		if req.Instrument {
 			stats.GenTimeNs += time.Since(start).Nanoseconds()
 			stats.GenFreqNs = float64(stats.GenTimeNs) / float64(req.BatchSize)
-
-			resp := efnlp.GenerateStreamResponse{Result: gen, Stats: &stats}
-			if err := stream.Send(&resp); err != nil {
-				log.Printf("send error %v", err)
-			}
-
-			p = seq[len(seq)-int(blockSize) : len(seq)]
-
 		}
 
-	} else {
-
-		for i := uint32(0); i < req.MaxBatches; i++ {
-			seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
-			if err != nil {
-				err := status.Error(
-					codes.Internal,
-					"There was an unexpected issue generating text",
-				)
-				return err
-			}
-			fp := MaxInt(len(p), int(blockSize))
-			gen, err := s.language.Decode(seq[fp:]) // string
-			if err != nil {
-
-			}
-			resp := efnlp.GenerateStreamResponse{Result: gen}
-			if err := stream.Send(&resp); err != nil {
-				log.Printf("send error %v", err)
-			}
-
-			p = seq[len(seq)-int(blockSize) : len(seq)]
-
+		resp := efnlp.GenerateStreamResponse{Result: gen, Stats: &stats}
+		if err := stream.Send(&resp); err != nil {
+			log.Printf("send error %v", err)
 		}
+
+		p = seq[len(seq)-int(blockSize) : len(seq)]
 
 	}
 

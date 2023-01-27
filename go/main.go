@@ -20,14 +20,14 @@ func main() {
 
 	// args := flag.Args()
 	// if len(args) == 0 {
-	// 	log.Fatal("Passing a processor is required.")
+	//  log.Fatal("Passing a processor is required.")
 	// } else if len(args) > 1 {
-	// 	log.Fatal("Only a single processor can be served at once.")
+	//  log.Fatal("Only a single processor can be served at once.")
 	// } else {
-	// 	_, exists := processors[args[0]]
-	// 	if !exists {
-	// 		log.Fatalf("Processor \"%s\" not defined.", args[0])
-	// 	}
+	//  _, exists := processors[args[0]]
+	//  if !exists {
+	//      log.Fatalf("Processor \"%s\" not defined.", args[0])
+	//  }
 	// }
 
 	if server {
@@ -151,11 +151,25 @@ func RunClient(host string, port int, verbose bool) {
 
 	{
 		log.Println("Attempting to stream generated text")
-		err := C.GenerateStream("\n", 100, 10, true)
+		msgs, err := C.GenerateStream("\n", 100, 1000, true)
+
 		if err != nil {
 			log.Fatalf("Failed to stream generate text: %v", err)
 		}
-		log.Printf("Successfully streamed generated text")
+		log.Printf("Successfully initiated streaming generated text")
+
+		for {
+			msg := <-msgs
+			if msg.Done {
+				log.Printf("Stream appears complete")
+				break
+			}
+			if msg.Error != nil {
+				log.Printf("Streaming error: %v", msg.Error)
+				break
+			}
+			log.Printf("Text received: %v", msg.Message)
+		}
 
 	}
 

@@ -56,6 +56,10 @@ integration-test *flags:
         --disable-warnings \
         {{flags}}
 
+# bring up compose setup
+up *FLAGS:
+    docker-compose build && docker-compose up {{FLAGS}}
+
 # run CLI
 run *flags:
     python -m efnlp {{flags}}

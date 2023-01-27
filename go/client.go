@@ -19,6 +19,13 @@ type EFNLPClient struct {
 	svc  efnlp.GenerationClient
 }
 
+// for channel-based streaming
+type ClientStreamMessage struct {
+	Message *efnlp.GenerateStreamResponse
+	Error   error
+	Done    bool
+}
+
 func (c *EFNLPClient) Connect(host string, port int) error {
 	c.addr = fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Connecting to %s", c.addr)
@@ -170,7 +177,8 @@ func (c *EFNLPClient) GenerateStream(
 	batchSize uint32,
 	batches uint32,
 	instrument bool,
-) error { // (*efnlp.GenerateStreamResponse, error) {
+) (<-chan ClientStreamMessage, error) {
+	// (*efnlp.GenerateStreamResponse, error) {
 
 	if c.svc == nil {
 		c.svc = efnlp.NewGenerationClient(c.conn)
@@ -187,34 +195,36 @@ func (c *EFNLPClient) GenerateStream(
 	err := req.Validate()
 	if err != nil {
 		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
 	stream, err := (c.svc).GenerateStream(context.Background(), &req)
 	if err != nil {
 		log.Fatalf("open stream error %v", err)
-		return err
+		return nil, err
 	}
 
-	done := make(chan bool)
-
+	msgs := make(chan ClientStreamMessage)
 	go func() {
+		defer close(msgs)
 		for {
+			msg := ClientStreamMessage{Done: false}
 			resp, err := stream.Recv()
 			if err == io.EOF {
-				done <- true //means stream is finished
+				msg.Done = true
+				msgs <- msg // stream is finished
 				return
 			}
 			if err != nil {
-				log.Printf("cannot receive %v", err)
+				msg.Error = err
+				msgs <- msg
 				return
 			}
-			log.Printf("Resp received: %v", resp)
+			msg.Message = resp
+			msgs <- msg
 		}
 	}()
 
-	<-done // we will wait until all response is received
-
-	return nil
+	return msgs, nil
 
 }
