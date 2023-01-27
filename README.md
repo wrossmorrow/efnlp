@@ -2,7 +2,7 @@
 
 This is the _jankiest possible_ take at computing n-gram or conditional empirical frequency ((C)EF) distributions for successor tokens given a fixed-width prefix. Yes that's just a Markov model. In a way this is _purposefully_ naive, and interested in how far such a naive technique goes. 
 
-There's `python` and `c++` code (in [`efnlp`](/efnlp) and [`cpp`](/cpp) respectively). 
+There's `python` and `c++` code (in [`efnlp`](/efnlp) and [`cpp`](/cpp) respectively) for analyzing text and creating sampling datastructures. There's also `go` code (in [`go`](/go)) for a gRPC server to read sampling datastructures and serve batch or streaming generated text. 
 
 ## Motivation (even though we just playin)
 
@@ -68,3 +68,8 @@ See [`__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-d
 ### c++
 
 See [`cpp/*`](/cpp), with stuff that should be ready for `cmake` to run through a build. Embarassingly, pretty much everything is just in [`main.cpp`](/cpp/main.cpp). 
+
+### go
+
+See [`go/*`](/go), with stuff that should be ready to build. There's a very brief [`README.md`](/go/README.md) 
+

@@ -5,12 +5,13 @@ This is a `go` implementation of a gRPC service that can
 * generate samples of text from a prompt
 * stream generated text from a prompt
 
-Build protobuf go code:
+Build `protobuf` `go` code:
 ```shell
 just codegen
 ```
+This uses [`buf`](https://buf.build/) not `protoc` (directly). 
 
-Run server (after building a language/model in [`c++`](https://github.com/wrossmorrow/efnlp/tree/main/cpp)):
+Run the gRPC server (after building a language/model in [`c++`](https://github.com/wrossmorrow/efnlp/tree/main/cpp)) with
 ```shell
 just run -language ../cpp/language.proto.bin -model ../cpp/model.proto.bin 
 ```
@@ -18,8 +19,11 @@ or
 ```shell
 go run *.go -language ../cpp/language.proto.bin -model ../cpp/model.proto.bin 
 ```
+The `language` and `model` files must be serialized `protobuf` from the specs here, and can be 
+* local files or objects in S3 (passing names starting with `s3://`)
+* `gz` compressed or not (`gz` compression can significantly reduce the stored size)
 
-Run client (with running server) and executing some ad-hoc tests
+Run the gRPC client (assuming a server is running) and execute some ad-hoc tests with
 ```shell
 just run -client
 ```
@@ -27,3 +31,5 @@ or
 ```shell
 go run *.go -client
 ```
+
+There's a quick take at a `docker` setup here too, of course. 
