@@ -63,7 +63,7 @@ With compiled code, we can parse out the (C)EFs in shakespeare in seconds, and g
 
 ### python
 
-See [`__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-dumb implementations in [`__init__.py`](/efnlp/__init__.py). 
+See [`efnlp/__main__.py`](/efnlp/__main__.py) for an example of running the no-doubt-dumb implementations in [`efnlp/__init__.py`](/efnlp/__init__.py). 
 
 ### c++
 
