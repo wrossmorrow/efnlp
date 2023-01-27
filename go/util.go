@@ -15,6 +15,20 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+func MaxInt(a int, b int) int {
+	if a <= b {
+		return b
+	}
+	return a
+}
+
+func MaxUInt32(a uint32, b uint32) uint32 {
+	if a <= b {
+		return b
+	}
+	return a
+}
+
 func hashUTF8(str []byte) string {
 	// h := blake2b.Sum256(str) // longer strings; faster?
 	h := sha1.Sum(str)

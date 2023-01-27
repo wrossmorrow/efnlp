@@ -51,7 +51,7 @@ func (c *EFNLPClient) GetValidText() (*efnlp.GetValidTextResponse, error) {
 	}
 
 	resp, err := (c.svc).GetValidText(context.Background(), &req)
-	if err != nil {
+	if err != nil { // TODO: interceptor
 		st, ok := status.FromError(err)
 		log.Printf("Error %v, %v", st, ok)
 		if !ok { // Error was not a status error
@@ -82,7 +82,7 @@ func (c *EFNLPClient) IsValidText(
 	}
 
 	resp, err := (c.svc).IsValidText(context.Background(), &req)
-	if err != nil {
+	if err != nil { // TODO: interceptor
 		st, ok := status.FromError(err)
 		log.Printf("Error %v, %v", st, ok)
 		if !ok { // Error was not a status error
@@ -112,7 +112,7 @@ func (c *EFNLPClient) GetModelBlockSize() (*efnlp.GetModelBlockSizeResponse, err
 	}
 
 	resp, err := (c.svc).GetModelBlockSize(context.Background(), &req)
-	if err != nil {
+	if err != nil { // TODO: interceptor
 		st, ok := status.FromError(err)
 		log.Printf("Error %v, %v", st, ok)
 		if !ok { // Error was not a status error
@@ -151,7 +151,7 @@ func (c *EFNLPClient) GenerateBatch(
 	}
 
 	resp, err := (c.svc).GenerateBatch(context.Background(), &req)
-	if err != nil {
+	if err != nil { // TODO: interceptor
 		st, ok := status.FromError(err)
 		log.Printf("Error %v, %v", st, ok)
 		if !ok { // Error was not a status error

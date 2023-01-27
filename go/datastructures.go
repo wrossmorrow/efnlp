@@ -15,7 +15,7 @@ type TokenType uint32
 type ProbType float64
 
 type Language struct {
-	size int32 // uint32
+	size uint32
 	ttos map[TokenType]string
 	stot map[string]TokenType
 }
@@ -29,12 +29,14 @@ type Sampler struct {
 
 type SuffixTree struct {
 	token    TokenType
+	depth    uint32
 	sampler  Sampler
 	prefixes map[TokenType]SuffixTree
 }
 
 type SuffixTreeSet struct {
-	size     int32 // uint32
+	size     uint32
+	depth    uint32
 	prefixes map[TokenType]SuffixTree
 }
 
@@ -58,7 +60,7 @@ func (l *Language) FromFileOrS3(
 }
 
 func (l *Language) FromProto(P *efnlp.Language) error {
-	l.size = int32(len(P.Lang)) // TODO: fix
+	l.size = uint32(len(P.Lang)) // TODO: fix
 	l.ttos = make(map[TokenType]string)
 	l.stot = make(map[string]TokenType)
 	for i := 0; i < len(P.Lang); i++ {
@@ -205,13 +207,19 @@ func (s *SuffixTree) FromProto(P *efnlp.SuffixTree) error {
 	s.token = TokenType(P.Token)
 	s.sampler = Sampler{}
 	s.sampler.FromProto(P.Sampler)
+	s.depth = 0
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
 		T.FromProto(P.Prefixes[i])
 		s.prefixes[T.token] = T
+		s.depth = MaxUInt32(s.depth, T.depth+1)
 	}
 	return nil
+}
+
+func (s *SuffixTree) GetDepth() uint32 {
+	return s.depth
 }
 
 func (s *SuffixTree) Sample(p []TokenType) (TokenType, error) {
@@ -256,14 +264,20 @@ func (s *SuffixTreeSet) FromFileOrS3(
 }
 
 func (s *SuffixTreeSet) FromProto(P *efnlp.SuffixTreeSet) error {
-	s.size = int32(len(P.Prefixes))
+	s.size = uint32(len(P.Prefixes))
+	s.depth = 0
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
 		T.FromProto(P.Prefixes[i])
 		s.prefixes[T.token] = T
+		s.depth = MaxUInt32(s.depth, T.depth+1)
 	}
 	return nil
+}
+
+func (s *SuffixTreeSet) GetDepth() uint32 {
+	return s.depth
 }
 
 func (s *SuffixTreeSet) Sample(prompt []TokenType) (TokenType, error) {

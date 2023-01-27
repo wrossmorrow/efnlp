@@ -27,5 +27,7 @@ services:
       - LOG_LEVEL=info
     command:
       - efnlp
-      - -language=/app/data/language.proto.bin
-      - -model=/app/data/model.proto.bin
+      - -language=s3://efnlp-private/language.proto.bin.gz
+      - -model=s3://efnlp-private/model.proto.bin.gz
+      # - -language=/app/data/language.proto.bin
+      # - -model=/app/data/model.proto.bin

@@ -14,15 +14,6 @@ import (
 	efnlp "github.com/wrossmorrow/efnlp/gen"
 )
 
-const blockSize = 10
-
-func MaxInt(a int, b int) int {
-	if a <= b {
-		return b
-	}
-	return a
-}
-
 type EFNLPServiceConfig struct {
 	languageFilename string
 	modelFilename    string
@@ -48,47 +39,40 @@ func (s *EFNLPService) Initialize(verbose bool) error {
 	// NOTE: need the pointer receiver to persist initialization
 	// of language and model into struct we will actually serve
 
-	{
-		if strings.HasSuffix(s.config.languageFilename, "/") {
-			return errors.New("Filenames can't end with \"/\"")
-		}
+	if strings.HasSuffix(s.config.languageFilename, "/") {
+		return errors.New("Filenames can't end with \"/\"")
+	}
 
-		// if languageFilename starts with s3:// ... assume
-		// passed string is like
-		//
-		// 		s3://{bucket}[/{prefix}]/{filename}
-		//
-		// and we need to download and store in `filename`
+	// if languageFilename starts with s3:// ... assume
+	// passed string is like
+	//
+	// 		s3://{bucket}[/{prefix}]/{filename}
+	//
+	// and we need to download and store in `filename`
 
-		s.language = &Language{}
-		err := s.language.FromFileOrS3(s.config.languageFilename, nil)
-		if err != nil {
-			log.Fatalf("Failed to parse language: %v", err)
-		}
+	s.language = &Language{}
+	err := s.language.FromFileOrS3(s.config.languageFilename, nil)
+	if err != nil {
+		log.Fatalf("Failed to parse language: %v", err)
+	}
 
-		if verbose {
-			log.Println("Read language into memory")
-			log.Printf("Language: %v", s.language)
-		}
+	if verbose {
+		log.Println("Read language into memory")
+	}
 
-	} // TODO: verify efnlp.Language is deallocated after
+	if strings.HasSuffix(s.config.modelFilename, "/") {
+		return errors.New("Filenames can't end with \"/\"")
+	}
 
-	{
-		if strings.HasSuffix(s.config.modelFilename, "/") {
-			return errors.New("Filenames can't end with \"/\"")
-		}
+	s.model = &SuffixTreeSet{}
+	err = s.model.FromFileOrS3(s.config.modelFilename, nil)
+	if err != nil {
+		log.Fatalf("Failed to parse model: %v", err)
+	}
 
-		s.model = &SuffixTreeSet{}
-		err := s.model.FromFileOrS3(s.config.modelFilename, nil)
-		if err != nil {
-			log.Fatalf("Failed to parse model: %v", err)
-		}
-
-		if verbose {
-			log.Println("Read model into memory")
-		}
-
-	} // TODO: verify efnlp.SuffixTreeSet is deallocated after
+	if verbose {
+		log.Println("Read model into memory")
+	}
 
 	return nil
 }
@@ -148,7 +132,7 @@ func (s EFNLPService) GetModelBlockSize(
 	}
 
 	return &efnlp.GetModelBlockSizeResponse{
-		Size: blockSize,
+		Size: s.model.GetDepth(),
 	}, nil
 
 }
@@ -180,6 +164,8 @@ func (s EFNLPService) GenerateBatch(
 		)
 		return nil, err
 	}
+
+	blockSize := s.model.GetDepth()
 
 	if req.Instrument {
 
@@ -251,6 +237,8 @@ func (s EFNLPService) GenerateStream(
 		return err
 	}
 
+	blockSize := s.model.GetDepth()
+
 	if req.Instrument {
 
 		for i := uint32(0); i < req.MaxBatches; i++ {
@@ -265,7 +253,7 @@ func (s EFNLPService) GenerateStream(
 				)
 				return err
 			}
-			fp := MaxInt(len(p), blockSize)
+			fp := MaxInt(len(p), int(blockSize))
 			gen, err := s.language.Decode(seq[fp:]) // string
 			if err != nil {
 
@@ -278,7 +266,7 @@ func (s EFNLPService) GenerateStream(
 				log.Printf("send error %v", err)
 			}
 
-			p = seq[len(seq)-blockSize : len(seq)]
+			p = seq[len(seq)-int(blockSize) : len(seq)]
 
 		}
 
@@ -293,7 +281,7 @@ func (s EFNLPService) GenerateStream(
 				)
 				return err
 			}
-			fp := MaxInt(len(p), blockSize)
+			fp := MaxInt(len(p), int(blockSize))
 			gen, err := s.language.Decode(seq[fp:]) // string
 			if err != nil {
 
@@ -303,7 +291,7 @@ func (s EFNLPService) GenerateStream(
 				log.Printf("send error %v", err)
 			}
 
-			p = seq[len(seq)-blockSize : len(seq)]
+			p = seq[len(seq)-int(blockSize) : len(seq)]
 
 		}
 

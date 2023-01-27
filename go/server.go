@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"google.golang.org/grpc"
+	grpc "google.golang.org/grpc"
 
 	hpb "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -29,7 +29,7 @@ func Serve(port int, streams uint32, service efnlp.GenerationServer) {
 	hpb.RegisterHealthServer(s, &HealthServer{})
 	efnlp.RegisterGenerationServer(s, service)
 
-	log.Printf("Starting service on port %d\n", port)
+	log.Printf("Starting gRPC listening on port %d\n", port)
 
 	var gracefulStop = make(chan os.Signal)
 	signal.Notify(gracefulStop, syscall.SIGTERM)
