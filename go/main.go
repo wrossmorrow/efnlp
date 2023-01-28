@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strings"
 )
 
 func main() {
@@ -14,9 +15,15 @@ func main() {
 	model := flag.String("model", "", "model file (proto)")
 	quiet := flag.Bool("quiet", false, "don't print info to terminal")
 
+	_parse := flag.Bool("parse", false, "parse data, requires `input` flag set")
+	input := flag.String("input", "", "input (text) file to actually parse")
+	block := flag.Int("block", 10, "token sequence block size (or window) to parse")
+	// we can interpret language/model flags as output?
+
 	flag.Parse()
 	verbose := !(*quiet)
 	server := !(*client)
+	parse := *_parse // deref for convenience
 
 	// args := flag.Args()
 	// if len(args) == 0 {
@@ -30,10 +37,73 @@ func main() {
 	//  }
 	// }
 
-	if server {
+	if parse {
+		ParseInput(*input, *language, *block, *model, verbose)
+	} else if server {
 		RunServer(*port, *language, *model, verbose)
 	} else {
 		RunClient(*host, *port, verbose)
+	}
+
+}
+
+func ParseInput(in string, language string, block int, model string, verbose bool) {
+
+	if verbose {
+		log.Printf("Parse Settings: ")
+		log.Printf("  input: %s", in)
+		log.Printf("  language: %s", language)
+		log.Printf("  model: %s", model)
+	}
+
+	if len(in) == 0 {
+		log.Fatalf("Config Error: input is required (via -input=[s3://]path/to/input.txt)")
+	}
+	if len(language) == 0 {
+		log.Fatalf("Config Error: Language spec is required (via -language=[s3://]path/to/lang.proto[.gz])")
+	}
+
+	// need to parse or read language
+	// probably read language is more appropriate...
+
+	lang := Language{}
+	err := lang.FromFileOrS3(language, nil) // (no special AWS config)
+	if err != nil {
+		log.Fatalf("Failed to parse language: %v", err)
+	}
+	if verbose {
+		log.Println("Read language into memory")
+	}
+
+	data, err := BytesFromFileOrS3(in, nil)
+	if err != nil {
+		log.Fatalf("Failed to read input: %v", err)
+	}
+	if verbose {
+		log.Println("Read input in memory")
+	}
+
+	tokenized, err := lang.Encode(string(data)) // TODO: cast ok? copies?
+	if err != nil {
+		log.Fatalf("Failed to tokenize input: %v", err)
+	}
+	if verbose {
+		log.Println("Tokenized input in memory")
+	}
+	// TODO: delete `data` from memory! If we've encoded, we
+	// don't require the string bytes anymore...
+
+	parser := EFNLPParser{Lang: &lang}
+	parser.Parse(tokenized, block, verbose)
+	if verbose {
+		log.Println("Parsed model from tokenized input")
+	}
+
+	if len(model) > 0 {
+		parser.Dump(model, strings.HasSuffix(model, ".gz"))
+		if verbose {
+			log.Printf("Dumped model (proto) to file %s", model)
+		}
 	}
 
 }
@@ -43,8 +113,8 @@ func RunServer(port int, language string, model string, verbose bool) {
 	if verbose {
 		log.Printf("Server Settings: ")
 		log.Printf("  port: %d", port)
-		log.Printf("  language: %v", language)
-		log.Printf("  model: %v", model)
+		log.Printf("  language: %s", language)
+		log.Printf("  model: %s", model)
 	}
 
 	if len(language) == 0 {
@@ -149,9 +219,18 @@ func RunClient(host string, port int, verbose bool) {
 		log.Printf("Successfully batch generated text: %v", resp)
 	}
 
+	{ // "test case" passed, this fails with service validation interceptor
+		log.Println("Attempting to fail to batch generate text")
+		_, err := C.GenerateBatch("\n", 1000, 1000000, true)
+		if err == nil {
+			log.Fatalf("Failed to fail to batch generated text")
+		}
+		log.Printf("Successfully failed to batch generate text: %v", err)
+	}
+
 	{
 		log.Println("Attempting to stream generated text")
-		msgs, err := C.GenerateStream("\n", 100, 1000, true)
+		msgs, err := C.GenerateStream("\n", 100, 10, true)
 
 		if err != nil {
 			log.Fatalf("Failed to stream generate text: %v", err)
@@ -170,6 +249,17 @@ func RunClient(host string, port int, verbose bool) {
 			}
 			log.Printf("Text received: %v", msg.Message)
 		}
+
+	}
+
+	{
+		log.Println("Attempting to fail to stream generated text")
+		_, err := C.GenerateStream("\n", 100, 10000000, true)
+
+		if err == nil {
+			log.Fatalf("Failed to invalidate request to stream generated text")
+		}
+		log.Printf("Successfully failed to stream generated text: %v", err)
 
 	}
 

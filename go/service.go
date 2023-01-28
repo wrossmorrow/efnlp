@@ -58,6 +58,7 @@ func (s *EFNLPService) Initialize(verbose bool) error {
 
 	if verbose {
 		log.Println("Read language into memory")
+		// log.Printf("Language: %v", s.language)
 	}
 
 	if strings.HasSuffix(s.config.modelFilename, "/") {
@@ -72,6 +73,7 @@ func (s *EFNLPService) Initialize(verbose bool) error {
 
 	if verbose {
 		log.Println("Read model into memory")
+		// log.Printf("Model: %v", s.model)
 	}
 
 	return nil
@@ -81,15 +83,6 @@ func (s EFNLPService) GetValidText(
 	ctx context.Context,
 	req *efnlp.GetValidTextRequest,
 ) (*efnlp.GetValidTextResponse, error) {
-
-	// TODO: logging interceptor
-
-	// TODO: request validation interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
-	}
 
 	keys := s.language.GetValidText() // []string; could we pass in reference to resp.Text?
 	resp := efnlp.GetValidTextResponse{}
@@ -106,15 +99,6 @@ func (s EFNLPService) IsValidText(
 	ctx context.Context,
 	req *efnlp.IsValidTextRequest,
 ) (*efnlp.IsValidTextResponse, error) {
-
-	// TODO: logging interceptor
-
-	// TODO: request validation interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
-	}
 
 	return &efnlp.IsValidTextResponse{
 		Text:  req.Text,
@@ -148,15 +132,6 @@ func (s EFNLPService) GenerateBatch(
 	req *efnlp.GenerateBatchRequest,
 ) (*efnlp.GenerateBatchResponse, error) {
 
-	// TODO: logging interceptor
-
-	// TODO: request validation interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
-	}
-
 	var i uint32
 	resp := efnlp.GenerateBatchResponse{
 		Prompt:    req.Prompt,
@@ -180,6 +155,7 @@ func (s EFNLPService) GenerateBatch(
 		start := time.Now()
 		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
 		if err != nil {
+			log.Printf("Error: %v", err)
 			err := status.Error(
 				codes.Internal,
 				"There was an unexpected issue generating text",
@@ -207,15 +183,6 @@ func (s EFNLPService) GenerateStream(
 	stream efnlp.Generation_GenerateStreamServer,
 ) error {
 
-	// TODO: logging interceptor
-
-	// TODO: request validation interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
-	}
-
 	// grpc uses one goroutine per method call, so we don't
 	// have to explicitly manage concurrency here
 
@@ -236,6 +203,7 @@ func (s EFNLPService) GenerateStream(
 		start := time.Now()
 		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
 		if err != nil {
+			log.Printf("Error: %v", err)
 			err := status.Error(
 				codes.Internal,
 				"There was an unexpected issue generating text",

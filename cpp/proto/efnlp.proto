@@ -35,20 +35,22 @@ message Token {
 }
 
 message Sampler {
-	repeated SamplerToken data = 1;
+	uint32 total = 1; // 64? MaxUInt32 ~ 4.3B which sounds pretty high. And we _can_ reduce...
+	repeated SamplerTokenCount counts = 2;
 }
 
-message SamplerToken {
-	uint32 token = 1; // uint32
-	double prob = 2;
+message SamplerTokenCount {
+	uint32 token = 1;
+	uint32 count = 2;
 }
 
 message SuffixTree {
-	uint32 token = 1;  // uint32
+	uint32 token = 1;
 	Sampler sampler = 2;
 	repeated SuffixTree prefixes = 3;
 }
 
 message SuffixTreeSet {
+	// size, depth?
 	repeated SuffixTree prefixes = 1;
 }

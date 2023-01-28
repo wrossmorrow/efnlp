@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"math/rand"
 	"unsafe"
 
@@ -21,10 +23,11 @@ type Language struct {
 }
 
 type Sampler struct {
-	total  ProbType
-	counts []ProbType
-	locs   map[TokenType]int // int?
-	toks   map[int]TokenType // int?
+	total  uint32 // we need to persist this for merge functionality
+	counts map[TokenType]uint32
+	// counts []ProbType
+	// locs   map[TokenType]int // int?
+	// toks   map[int]TokenType // int?
 }
 
 type SuffixTree struct {
@@ -106,20 +109,11 @@ func (l *Language) Encode(s string) ([]TokenType, error) {
 		result[i] = r
 	}
 
-	// for i := 0 ; i < len(s) ; i++ {
-	//     h := hashUTF8(str[i:i+1])
-	//     r, ok := l.stot[h]
-	//     if !ok {
-	//         return nil, errors.New("Unknown string encountered")
-	//     }
-	//     result[i] = r
-	// }
-
 	return result, nil
 }
 
 func (l *Language) EncodeProtoPrompt(p *efnlp.Prompt) ([]TokenType, error) {
-	// Turn a req.Prompt into a []TokenType
+	// Turn a req.Prompt (protobuf) into a []TokenType
 
 	switch v := p.Value.(type) {
 
@@ -169,52 +163,144 @@ func (l *Language) Decode(seq []TokenType) (string, error) {
 	return r, nil
 }
 
+func (s *Sampler) EmptyInit() error {
+	s.total = 0
+	s.counts = make(map[TokenType]uint32)
+	return nil
+}
+
 func (s *Sampler) FromProto(P *efnlp.Sampler) error {
-	s.total = 1.0 // TODO: abstracted type safe?
-	s.counts = make([]ProbType, len(P.Data))
-	s.locs = make(map[TokenType]int)
-	s.toks = make(map[int]TokenType)
-	for i := 0; i < len(P.Data); i++ {
-		t := TokenType(P.Data[i].Token)
-		p := ProbType(P.Data[i].Prob)
-		s.counts[i] = p
-		s.locs[t] = i
-		s.toks[i] = t
+	s.total = P.Total
+	s.counts = make(map[TokenType]uint32)
+	for i := 0; i < len(P.Counts); i++ {
+		t := TokenType(P.Counts[i].Token)
+		c := P.Counts[i].Count
+		s.counts[t] = c
+	}
+	return nil
+}
+
+func (s *Sampler) ToProto() *efnlp.Sampler {
+
+	P := efnlp.Sampler{}
+	P.Total = s.total
+	P.Counts = make([]*efnlp.SamplerTokenCount, len(s.counts))
+
+	i := 0
+	for t, c := range s.counts {
+		P.Counts[i] = &efnlp.SamplerTokenCount{Token: uint32(t), Count: c}
+		i++
+	}
+
+	return &P
+}
+
+func (s *Sampler) Add(t TokenType) error {
+	s.total += 1
+	_, exists := s.counts[t]
+	if exists {
+		s.counts[t] += 1
+	} else {
+		s.counts[t] = 1
 	}
 	return nil
 }
 
 func (s *Sampler) Sample() (TokenType, error) {
-	r := ProbType(rand.Float64())
-	for i := 0; i < len(s.counts); i++ {
-		if r < s.counts[i] {
-			return s.toks[i], nil
+
+	// Is this actually ok? Can you prove order invariance?
+	// That is, we aren't introducing bias in the sampling
+	// distribution by have an "unorded" map for counts...
+	r := float64(s.total) * rand.Float64()
+	for t, c := range s.counts {
+		fc := float64(c)
+		if r < fc {
+			return t, nil
 		}
-		r -= s.counts[i]
+		r -= fc
 	}
+
+	// supp R == [0,total], where total == sum(counts), so 
+	// if we've subtracted all the counts (`c`) and have not
+	// returned already (ie r > 0) there's a problem with the
+	// distribution. 
 	return TokenType(0), errors.New("Malformed distribution in sampler")
 }
 
 func (s *Sampler) Probability(t TokenType) ProbType {
-	idx, ok := s.locs[t]
-	if !ok {
+	c, exists := s.counts[t]
+	if !exists {
 		return ProbType(0.0)
 	}
-	return s.counts[idx] / s.total
+	return ProbType(c) / ProbType(s.total)
+}
+
+func (s *SuffixTree) EmptyInit() error {
+	// token? 0? not really "accurate"... Don't set here
+	s.sampler = Sampler{}
+	s.sampler.EmptyInit()
+	s.depth = 0
+	s.prefixes = make(map[TokenType]SuffixTree)
+	return nil
 }
 
 func (s *SuffixTree) FromProto(P *efnlp.SuffixTree) error {
 	s.token = TokenType(P.Token)
 	s.sampler = Sampler{}
-	s.sampler.FromProto(P.Sampler)
+	err := s.sampler.FromProto(P.Sampler)
+	if err != nil {
+		return err
+	}
 	s.depth = 0
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
-		T.FromProto(P.Prefixes[i])
+		err = T.FromProto(P.Prefixes[i])
+		if err != nil {
+			return err
+		}
 		s.prefixes[T.token] = T
 		s.depth = MaxUInt32(s.depth, T.depth+1)
 	}
+	return nil
+}
+
+func (s *SuffixTree) ToProto() (*efnlp.SuffixTree, error) {
+	P := efnlp.SuffixTree{}
+	P.Token = uint32(s.token) // ugh
+	P.Sampler = s.sampler.ToProto()
+	P.Prefixes = make([]*efnlp.SuffixTree, len(s.prefixes))
+	i := 0
+	for _, T := range s.prefixes {
+		Tp, err := T.ToProto() // -> *efnlp.SuffixTree, err
+		if err != nil {
+			return nil, err
+		}
+		P.Prefixes[i] = Tp
+		i++
+	}
+	return &P, nil
+}
+
+func (s *SuffixTree) Parse(p []TokenType, t TokenType) error {
+	s.sampler.Add(t)
+	if len(p) == 0 {
+		return nil
+	}
+
+	l := p[len(p)-1] // "last" token of suffix
+	tree, exists := s.prefixes[l]
+	if !exists {
+		tree = SuffixTree{token: l} // have to set the token...
+		tree.EmptyInit()
+		s.prefixes[l] = tree
+	}
+	err := tree.Parse(p[:len(p)-1], t)
+	if err != nil {
+		return err
+	}
+
+	s.depth = MaxUInt32(s.depth, tree.depth+1)
 	return nil
 }
 
@@ -244,6 +330,13 @@ func (s *SuffixTree) Sample(p []TokenType) (TokenType, error) {
 	return v.Sample(p[:len(p)-1])
 }
 
+func (s *SuffixTreeSet) EmptyInit() error {
+	s.size = 0
+	s.depth = 0
+	s.prefixes = make(map[TokenType]SuffixTree)
+	return nil
+}
+
 func (s *SuffixTreeSet) FromFileOrS3(
 	filename string,
 	awsconf *aws.Config,
@@ -269,10 +362,47 @@ func (s *SuffixTreeSet) FromProto(P *efnlp.SuffixTreeSet) error {
 	s.prefixes = make(map[TokenType]SuffixTree)
 	for i := 0; i < len(P.Prefixes); i++ {
 		T := SuffixTree{}
-		T.FromProto(P.Prefixes[i])
+		err := T.FromProto(P.Prefixes[i])
+		if err != nil {
+			return err
+		}
 		s.prefixes[T.token] = T
 		s.depth = MaxUInt32(s.depth, T.depth+1)
 	}
+	return nil
+}
+
+func (s *SuffixTreeSet) ToProto() (*efnlp.SuffixTreeSet, error) {
+	P := efnlp.SuffixTreeSet{}
+	P.Prefixes = make([]*efnlp.SuffixTree, len(s.prefixes))
+	i := 0
+	for _, T := range s.prefixes {
+		Tp, err := T.ToProto() // -> *efnlp.SuffixTree, err
+		if err != nil {
+			return nil, err
+		}
+		P.Prefixes[i] = Tp
+		i++
+	}
+	return &P, nil
+}
+
+func (s *SuffixTreeSet) Parse(p []TokenType, t TokenType) error {
+	if len(p) == 0 {
+		return errors.New("cannot parse an empty prefix")
+	}
+	l := p[len(p)-1] // "last" token of prefix
+	tree, exists := s.prefixes[l]
+	if !exists {
+		tree = SuffixTree{token: l} // have to set the token...
+		tree.EmptyInit()
+		s.prefixes[l] = tree
+	}
+	err := tree.Parse(p[:len(p)-1], t)
+	if err != nil {
+		return err
+	}
+	s.depth = MaxUInt32(s.depth, tree.depth+1)
 	return nil
 }
 
@@ -289,7 +419,9 @@ func (s *SuffixTreeSet) Sample(prompt []TokenType) (TokenType, error) {
 	token := prompt[len(prompt)-1]
 	prefix, ok := s.prefixes[token]
 	if !ok {
-		return 0, errors.New("Unknown token in prefix")
+		return 0, errors.New(
+			fmt.Sprintf("Unknown token (%d) in prefix", token),
+		)
 		// NOTE: when distributing control this could happen? like a 404
 	}
 
@@ -329,3 +461,51 @@ func (s *SuffixTreeSet) Generate(
 	return result, nil
 
 }
+
+type EFNLPParser struct{
+	Lang *Language
+	Trees *SuffixTreeSet
+}
+
+func (P *EFNLPParser) Parse(tokseq []TokenType, blockSize int, verbose bool) {
+
+	P.Trees = &SuffixTreeSet{}
+	P.Trees.EmptyInit()
+
+	// enumerate block-size-long sequences, parsing each with it's successor
+	for i := blockSize ; i < len(tokseq)-1 ; i++ {
+		P.Trees.Parse(tokseq[i-blockSize:i], tokseq[i])
+	}
+
+}
+
+func (P *EFNLPParser) Dump(out string, compress bool) error {
+
+	Pp, err := P.Trees.ToProto()
+	if err != nil {
+		return err
+	}
+
+	data, err := proto.Marshal(Pp) // data []byte
+    if err != nil {
+    	return err
+    }
+
+    // compress with gzip 
+    if compress {
+    	gz, err := GzBytes(data) // gz []byte
+    	if err != nil {
+    		return err
+    	}
+    	err = os.WriteFile(out, gz, 0644)    
+    } else {
+    	err = os.WriteFile(out, data, 0644)
+    }
+
+    if err != nil {
+    	return err
+    }
+	return nil
+
+}
+

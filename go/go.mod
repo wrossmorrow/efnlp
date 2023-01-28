@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/aws/aws-sdk-go v1.44.188
 	github.com/envoyproxy/protoc-gen-validate v0.9.1
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.28.1
 )

@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	intc "github.com/grpc-ecosystem/go-grpc-middleware"
+	recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	validator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	grpc "google.golang.org/grpc"
 
 	hpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -23,11 +26,25 @@ func Serve(port int, streams uint32, service efnlp.GenerationServer) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	sopts := []grpc.ServerOption{grpc.MaxConcurrentStreams(streams)}
-	s := grpc.NewServer(sopts...)
+	sopts := []grpc.ServerOption{
+		grpc.MaxConcurrentStreams(streams),
+		grpc.UnaryInterceptor(
+			intc.ChainUnaryServer(
+				validator.UnaryServerInterceptor(), // TODO: not working
+				recovery.UnaryServerInterceptor(),  // TODO: working?
+			),
+		),
+		grpc.StreamInterceptor(
+			intc.ChainStreamServer(
+				validator.StreamServerInterceptor(), // TODO: not working
+				recovery.StreamServerInterceptor(),  // TODO: working?
+			),
+		),
+	}
+	server := grpc.NewServer(sopts...)
 
-	hpb.RegisterHealthServer(s, &HealthServer{})
-	efnlp.RegisterGenerationServer(s, service)
+	hpb.RegisterHealthServer(server, &HealthServer{})
+	efnlp.RegisterGenerationServer(server, service)
 
 	log.Printf("Starting gRPC listening on port %d\n", port)
 
@@ -41,6 +58,6 @@ func Serve(port int, streams uint32, service efnlp.GenerationServer) {
 		time.Sleep(1 * time.Second)
 		os.Exit(0)
 	}()
-	s.Serve(lis)
+	server.Serve(lis)
 
 }

@@ -34,6 +34,8 @@ using jsonpp = nlohmann::json;
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef uint32_t TokenType; // the internal type of a token
+typedef uint32_t CountType; // the internal type of a "count"
+typedef double ProbType; // the internal type of a "probability"
 
 typedef std::chrono::high_resolution_clock Clock;
 
@@ -502,40 +504,44 @@ public:
 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-typedef double ProbType;
-
-const size_t BYTES_PER_TARGET = sizeof(ProbType) + 2 * sizeof(int) + 2 * sizeof(TokenType);
-
-
 class Sampler {
-    ProbType total;
-    vector<ProbType> counts;
-    map<TokenType, int> locs;
-    map<int, TokenType> toks;
+
+    CountType total;
+    map<TokenType, CountType> counts;
+
+    // ProbType total;
+    // vector<ProbType> counts;
+    // map<TokenType, int> locs;
+    // map<int, TokenType> toks;
 
 public: 
     Sampler() : total(0) {};
     Sampler(const efnlp::PROTO_VERSION::Sampler * S) {
-        total = 1.0f; // TODO: abstracted type safe?
-        counts.reserve(S->data_size());
-        for( auto i = 0 ; i < S->data_size() ; i++ ) {
-            auto d = S->data(i);
-            auto t = d.token();
-            locs[t] = i;
-            toks[i] = t;
-            counts.push_back(d.prob());
+        total = S->total();
+        CountType totalCheck = 0;
+        for( auto i = 0 ; i < S->counts_size() ; i++ ) {
+            auto d = S->counts(i); // a SamplerTokenCount (or pointer to?)
+            counts[d.token()] = d.count();
+            totalCheck += d.count();
+        }
+
+        if( totalCheck != total ) {
+            // throw? 
+            cout << "Error!!!! totals mismatch: " << total << " vs " << totalCheck;
         }
     }
     ~Sampler() {};
 
     void print() {
-        for( auto const& [t, i] : locs )
-            cout << t << "(" << counts[i]/total << "), ";
+        cout << total << ", ";
+        for( auto const& [t, c] : counts )
+            cout << t << "(" << c << "), ";
     }
     
     template<typename T> void render(Language<T> * L) {
-        for( auto const& [t, i] : locs )
-            cout << '"' << (*L)[t] << '"' << "(" << counts[i]/total << "), ";
+        cout << total << ", ";
+        for( auto const& [t, c] : counts )
+            cout << '"' << (*L)[t] << '"' << "(" << c << "), ";
     }
 
     int size() { return counts.size(); }
@@ -545,10 +551,10 @@ public:
         j["total"] = total;
         vector<jsonpp> tmp;
         tmp.reserve(counts.size());
-        for( auto const& [t, i] : locs ) {
+        for( auto const& [t, c] : counts ) {
             jsonpp k;
             k["token"] = t;
-            k["count"] = counts[i];
+            k["count"] = c;
             tmp.push_back(k);
         }
         j["data"] = jsonpp(tmp);
@@ -557,64 +563,73 @@ public:
 
     efnlp::PROTO_VERSION::Sampler proto() {
         efnlp::PROTO_VERSION::Sampler s;
-        for( auto const& [t, i] : locs ) {
-            auto d = s.add_data();
+        s.set_total(total);
+        for( auto const& [t, c] : counts ) {
+            auto d = s.add_counts();
             d->set_token(t);
-            d->set_prob(counts[i]/total);
+            d->set_count(c);
         }
         return s;
     }
 
     size_t bytes() {
-        return BYTES_PER_TARGET * counts.size() + sizeof(ProbType);
+        return sizeof(CountType) + counts.size() * (sizeof(TokenType)+sizeof(CountType));
     }
 
     void add(TokenType t) {
-        total += 1.0f;
-        if( locs.count(t) == 0 ) {
-            auto i = counts.size();
-            counts.push_back(1.0f);
-            locs[t] = i;
-            toks[i] = t;
-        } else {
-            counts[locs[t]] += 1.0f;
-        }
+        total += 1;
+        if( counts.count(t) == 0 )
+            counts[t] = 1;
+        else
+            counts[t] += 1;
+    }
+
+    CountType getTotal() {
+        return total;
     }
 
     TokenType sample() {
-        auto r = total * rand() / (RAND_MAX);
-        for( auto i = 0ul ; i < counts.size() ; i++ ) {
-            if( r < counts[i] ) { return toks[i]; }
-            r -= counts[i];
+        auto r = double(total) * rand() / (RAND_MAX);
+        for( auto const& [t, c] : counts ) {
+            if( r < (double)c )
+                return t;
+            r -= (double)c;
         }
-        return 0; // THIS SHOULD NOT BE REACHABLE
+        return 0; // THIS SHOULD NOT BE REACHABLE; throw?
+    }
+
+    CountType getCount(TokenType t) {
+        if( counts.count(t) == 0 ) 
+            return 0;
+        return counts[t];
+    }
+
+    map<TokenType, CountType> getCounts() {
+        return counts; // TODO: reference?
     }
 
     ProbType probability(TokenType t) {
-        if( locs.count(t) == 0 ) 
+        if( counts.count(t) == 0 ) 
             return 0.0f;
-        return counts[locs[t]]/total;
+        return ((double)counts[t])/((double)total);
     }
 
     map<TokenType, ProbType> histogram() {
         map<TokenType, ProbType> D;
-        for( auto [t, i] : locs )
-            D[t] = counts[i];
+        for( auto const& [t, c] : counts )
+            D[t] = probability(t);
         return D;
     }
 
     void merge(Sampler * S) {
-        auto D = S->histogram();
-        for( auto [t, c] : D ) {
-            total += c;
-            if( locs.count(t) == 0 ) {
-                auto i = counts.size();
-                counts.push_back(c);
-                locs[t] = i;
-                toks[i] = t;
-            } else {
-                counts[locs[t]] += c;
-            }
+        total += S->getTotal();
+        for( auto const& [t, c] : counts ) {
+            if( S->getCount(t) > 0 ) 
+                counts[t] += S->getCount(t);
+        }
+        for( auto const& [t, c] : S->getCounts() ) {
+            if( counts.count(t) == 0 )
+                counts[t] = c;
         }
     }
 

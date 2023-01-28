@@ -10,6 +10,9 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 
+	// intc "github.com/grpc-ecosystem/go-grpc-middleware"
+	validator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
+
 	efnlp "github.com/wrossmorrow/efnlp/gen"
 )
 
@@ -29,7 +32,18 @@ type ClientStreamMessage struct {
 func (c *EFNLPClient) Connect(host string, port int) error {
 	c.addr = fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Connecting to %s", c.addr)
-	conn, err := grpc.Dial(c.addr, grpc.WithBlock(), grpc.WithInsecure())
+	conn, err := grpc.Dial(
+		c.addr,
+		grpc.WithBlock(),
+		grpc.WithInsecure(),
+		grpc.WithChainUnaryInterceptor(
+			validator.UnaryClientInterceptor(),
+		),
+		// Not defined in the import: how to validate streaming req client side?
+		// grpc.WithChainStreamInterceptor(
+		//     validator.StreamClientInterceptor(),
+		// ),
+	)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to GenerationService on %s: %w", c.addr, err)
 	}
@@ -150,12 +164,12 @@ func (c *EFNLPClient) GenerateBatch(
 		Instrument: instrument,
 	}
 
-	// TODO: interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		status.Error(codes.InvalidArgument, msg)
-	}
+	// // TODO: interceptor
+	// err := req.Validate()
+	// if err != nil {
+	// 	msg := fmt.Sprintf("InvalidRequest: %v", err)
+	// 	status.Error(codes.InvalidArgument, msg)
+	// }
 
 	resp, err := (c.svc).GenerateBatch(context.Background(), &req)
 	if err != nil { // TODO: interceptor
@@ -178,7 +192,6 @@ func (c *EFNLPClient) GenerateStream(
 	batches uint32,
 	instrument bool,
 ) (<-chan ClientStreamMessage, error) {
-	// (*efnlp.GenerateStreamResponse, error) {
 
 	if c.svc == nil {
 		c.svc = efnlp.NewGenerationClient(c.conn)
@@ -191,12 +204,12 @@ func (c *EFNLPClient) GenerateStream(
 		Instrument: instrument,
 	}
 
-	// TODO: interceptor
-	err := req.Validate()
-	if err != nil {
-		msg := fmt.Sprintf("InvalidRequest: %v", err)
-		return nil, status.Error(codes.InvalidArgument, msg)
-	}
+	// // TODO: interceptor
+	// err := req.Validate()
+	// if err != nil {
+	// 	msg := fmt.Sprintf("InvalidRequest: %v", err)
+	// 	return nil, status.Error(codes.InvalidArgument, msg)
+	// }
 
 	stream, err := (c.svc).GenerateStream(context.Background(), &req)
 	if err != nil {

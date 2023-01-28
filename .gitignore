@@ -9,9 +9,8 @@ __pycache__
 .mypy_cache
 .pytest_cache
 
-*.secret
+*.secret.*
 
-# block site (for now)
+# block site/deploy (for now)
 site
-
-
+deploy

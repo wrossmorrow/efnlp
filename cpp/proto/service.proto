@@ -60,9 +60,11 @@ message GenerateBatchRequest {
   ];
 
 	Prompt prompt = 2; // the prompt to use in generation
-	uint32 batch_size = 3; // the number of tokens to draw
+	uint32 batch_size = 3 [ // the number of tokens to draw
+  	(validate.rules).uint32 = {gt: 0, lte: 65536}
+	]; 
 	uint32 samples = 4 [ // the number of iid samples to draw
-  	(validate.rules).uint32 = {lte: 10}
+  	(validate.rules).uint32 = {gt: 0, lte: 10}
 	]; 
 	bool instrument = 5; // return any statistics
 
