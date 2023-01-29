@@ -42,27 +42,13 @@ unit-test *flags:
         --disable-warnings \
         {{flags}}
 
-# run all solver tests
-solver-test *flags:
-    poetry run python -m pytest -v \
-        test/solver \
-        --disable-warnings \
-        {{flags}}
-            
-# run all integration tests
-integration-test *flags:
-    poetry run python -m pytest -v \
-        test/integration \
-        --disable-warnings \
-        {{flags}}
+# run CLI
+run *flags:
+    poetry run python -m efnlp {{flags}}
 
 # bring up compose setup
 up *FLAGS:
     docker-compose build && docker-compose up {{FLAGS}}
-
-# run CLI
-run *flags:
-    python -m efnlp {{flags}}
 
 # build package
 build: 

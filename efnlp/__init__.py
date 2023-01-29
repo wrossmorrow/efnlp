@@ -1,28 +1,44 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from random import choices
+from random import random
 from typing import Dict, List, Optional, Tuple, Union
 
 
 @dataclass
-class Target:
-
-    token: int
-    count: int = field(init=False)
-    probability: float = field(init=False)
+class Sampler:
+    
+    total: int = field(init=False)
+    counts: Dict[int, int] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.count = 1
-        self.probability = 0.0
+        self.total = 0
+        self.counts = {}
 
-    def increment(self) -> Target:
-        self.count += 1
+    def __add__(self, t: int) -> Sampler:
+        return self.add(t)
+
+    def __iadd__(self, t: int) -> Sampler:
+        return self.add(t)
+
+    def add(self, t: int) -> Sampler:
+        self.total += 1
+        if t in self.counts:
+            self.counts[t] += 1
+        else:
+            self.counts[t] = 1
         return self
 
-    def normalize(self, total: float) -> Target:
-        self.probability = self.count / total
-        return self
+    def memory(self) -> int:
+        return 4 + 2 * len(self.counts)
+
+    def sample(self) -> int:
+        r = self.total * random()
+        for t, c in self.counts.items():
+            if r < c:
+                return t
+            r -= c
+        raise Exception("We should not be here, sampler malformed")
 
 
 @dataclass
@@ -31,14 +47,12 @@ class SuffixTree:
     token: int  # token index
     count: int = field(init=False)  # occurrences
     children: Dict[int, SuffixTree] = field(init=False)  # "children" is a bad name
-    nexts: Dict[int, Target] = field(init=False)
-    sampler: Tuple[List[int], List[float]] = field(init=False)  # normalized weights needed?
+    sampler: Sampler = field(init=False)
 
     def __post_init__(self) -> None:
         self.count = 0
         self.children = {}
-        self.nexts = {}
-        self.sampler = ([], [])
+        self.sampler = Sampler()
 
     def __add__(self, child: SuffixTree) -> SuffixTree:
         return self.add(child)
@@ -70,19 +84,13 @@ class SuffixTree:
     def parse(self, prefix: List[int], successor: int) -> SuffixTree:
         """Parse a prefix into this SuffixTree, including the successor
         token. Chainable."""
-
-        if successor in self.nexts:
-            self.nexts[successor].increment()
-        else:
-            self.nexts[successor] = Target(successor)
-
+        self.sampler += successor
         if len(prefix) > 0:
             C = self.get(prefix[-1])
             if C is None:
                 C = SuffixTree(prefix[-1])
                 self[prefix[-1]] = C
             C.parse(prefix[:-1], successor)
-
         return self
 
     def merge(self, other: SuffixTree) -> SuffixTree:
@@ -92,28 +100,9 @@ class SuffixTree:
         # then merge matching children
         return self
 
-    def normalize(self) -> SuffixTree:
-        """Construct probabilities, recursively. Chainable."""
-        self._normalize()
-        for _, c in self.children.items():
-            c.normalize()
-        return self
-
-    def _normalize(self) -> None:
-        """Internal: construct probabilities for this node only."""
-        s = 0
-        for _, t in self.nexts.items():
-            s += t.count
-        for _, t in self.nexts.items():
-            t.normalize(s)
-        self.sampler = (
-            [t for t in self.nexts],
-            [t.probability for _, t in self.nexts.items()],
-        )
-
     def memory(self) -> int:
         """Return an estimate of the memory requirements for this tree"""
-        return 16 * len(self.nexts) + sum([c.memory() for _, c in self.children.items()])
+        return self.sampler.memory() + sum([4 + c.memory() for t, c in self.children.items()])
 
     def prefixes(self) -> List[List[int]]:
         """List all prefixes held in this SuffixTree. These are
@@ -127,7 +116,7 @@ class SuffixTree:
         basically the set of paths to leaf nodes from this node,
         along with any successor tokens."""
         if len(self.children) == 0:
-            return [([self.token], t) for t in self.nexts]
+            return [([self.token], t) for t in self.sampler.counts]
         return [
             (p[0] + [self.token], p[1]) for _, c in self.children.items() for p in c.patterns()
         ]
@@ -161,46 +150,35 @@ class SuffixTree:
         a normalized tree for now. Recurses to search for the
         longest matching suffix for the prefix."""
         if len(prefix) == 0 or prefix[-1] not in self:
-            return choices(self.sampler[0], weights=self.sampler[1], k=1)[0]
+            return self.sampler.sample()
         return self[prefix[-1]].sample(prefix[:-1])
-
-    def empfreq(self, prefix: List[int]) -> Tuple[List[int], List[float]]:
-        """Return empirical frequencies. Equivalent to sampling
-        in structure, except that we don't sample, we return the
-        successor tokens and their probabilities."""
-        if len(prefix) == 0 or prefix[-1] not in self:  # sample from children?
-            return self.sampler[0], self.sampler[1]
-        return self[prefix[-1]].empfreq(prefix[:-1])
 
     def probability(self, prefix: List[int], successor: int) -> float:
         """Return pattern probability. Basically suffix search
         but returning the probability of the longest match."""
 
         if len(prefix) == 0:
-            return self.nexts[successor].probability if successor in self.nexts else 0.0
+            return self.sampler.counts.get(successor, 0) / self.sampler.total
 
         # search children
-        C = self.get(prefix[-1])
+        C = self.children.get(prefix[-1])
         if C is None:
-            return 0.0  # no match in this prefix, probability zero
+            return self.sampler.counts.get(successor, 0) / self.sampler.total
 
         # recurse into matched child with the prefix's prefix
-        p = C.probability(prefix[:-1], successor)
-        if p > 0.0:
-            return p
+        return C.probability(prefix[:-1], successor)
 
-        # child has no match
-        return self.nexts[successor].probability if successor in self.nexts else 0.0
+        # TODO: verify
 
 
 @dataclass
 class SuffixTreeSet:
 
     size: int  # "vocab" size
-    trees: List[SuffixTree] = field(init=False)
+    trees: Dict[int, SuffixTree] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.trees = [SuffixTree(t) for t in range(self.size)]
+        self.trees = {t: SuffixTree(t) for t in range(self.size)}
 
     def __getitem__(self, token: int) -> SuffixTree:
         return self.trees[token]
@@ -218,7 +196,7 @@ class SuffixTreeSet:
         return self
 
     def memory(self) -> int:
-        return sum([t.memory() for t in self.trees])
+        return sum([st.memory() for t, st in self.trees.items()])
 
     def prefixes(self, token: Optional[int] = None) -> List[List[int]]:
         if token is None:
@@ -246,23 +224,13 @@ class SuffixTreeSet:
             raise ValueError("can't match the empty token string")
         return self.trees[prefix[-1]].match(prefix[:-1])
 
-    def normalize(self) -> SuffixTreeSet:
-        for t in self.trees:
-            t.normalize()
-        return self
-
     def sample(self, prefix: List[int] = []) -> int:
         if len(prefix) == 0:  # sample from token marginals?
             return 0
         return self.trees[prefix[-1]].sample(prefix[:-1])
 
-    def empfreq(self, prefix: List[int] = []) -> Tuple[List[int], List[float]]:
-        if len(prefix) == 0:  # sample from token marginals?
-            return [], []
-        return self.trees[prefix[-1]].empfreq(prefix[:-1])
-
     def probability(self, prefix: List[int], successor: int) -> float:
-        if len(prefix) == 0:  # raw count occurrence of the successor
+        if len(prefix) == 0:  # TODO: raw count occurrence of the successor?
             return 0
         p = self.trees[prefix[-1]].probability(prefix[:-1], successor)
         if p > 0:

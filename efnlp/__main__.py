@@ -155,22 +155,20 @@ if __name__ == "__main__":
     if args.verbose:
         _print("Parsing prefix/successor tokens")
 
+    ps = dt.now()
     S = SuffixTreeSet(L.size)
     for i in range(B, N - 1):
         S.parse(C[i - B : i], C[i])
+    pt = (dt.now()-ps).total_seconds()*1000
 
     if args.verbose and args.stats:
-        _print("Parsed prefixes and successors in corpus")
+        _print(f"Parsed prefixes and successors in corpus in {pt:0.2f}ms")
         prefix_count = len(S.prefixes())
         pop = 100.0 * prefix_count / (N - B - 1)  # exclude last element
         _print(f"Found {prefix_count:,} prefixes ({pop:.1f}% of possible)")
         pattern_count = len(S.patterns())
         pop = 100.0 * pattern_count / (N - B - 1)  # exclude last element
         _print(f"Found {pattern_count:,} patterns ({pop:.1f}% of possible)")
-
-        _print("Normalizing to empirical frequencies")
-
-    S.normalize()
 
     if args.verbose and args.memory:
         mem = S.memory()
@@ -183,27 +181,18 @@ if __name__ == "__main__":
 
     if Cv:
 
-        hr = 0.0
-        for i in range(B + 1, len(Cv) - 1):
-            t = S.sample(Cv[i - B - 1 : i - 1])
-            if t == Cv[i]:
-                hr += 1
-            else:
-                print(Cv[i - B - 1 : i - 1], Cv[i], t, S.empfreq(Cv[i - B - 1 : i - 1]))
-
-        hr /= N - Sp - 1
-        if args.verbose:
-            _print(
-                f"Hit rate on last {N-Sp-1:,} elements "
-                f"({100*args.split:.3}%) of the corpus: {100*hr:.2}"
-            )
+        raise NotImplementedError("Still working on validation strategy")
 
     if G > 0:
 
         if args.verbose:
             _print(f"Sampling and decoding {G} tokens")
 
+        gs = dt.now()
         shake = L.decode(S.generate(G, B, L.encode(args.prompt)))
+        if args.verbose:
+            gf = 1e6*(dt.now()-gs).total_seconds()/G
+            _print(f"Generation frequency: {gf:0.1f} us/tok")
 
         if args.output:
             if args.verbose:
