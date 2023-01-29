@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -18,6 +19,8 @@ func main() {
 	_parse := flag.Bool("parse", false, "parse data, requires `input` flag set")
 	input := flag.String("input", "", "input (text) file to actually parse")
 	block := flag.Int("block", 10, "token sequence block size (or window) to parse")
+	generate := flag.Int("generate", 10, "number of tokens to generate")
+	printgen := flag.Bool("print", true, "print generated text")
 	// we can interpret language/model flags as output?
 
 	flag.Parse()
@@ -38,7 +41,7 @@ func main() {
 	// }
 
 	if parse {
-		ParseInput(*input, *language, *block, *model, verbose)
+		ParseInput(*input, *language, *block, *model, *generate, *printgen, verbose)
 	} else if server {
 		RunServer(*port, *language, *model, verbose)
 	} else {
@@ -47,7 +50,15 @@ func main() {
 
 }
 
-func ParseInput(in string, language string, block int, model string, verbose bool) {
+func ParseInput(
+	in string,
+	language string,
+	block int,
+	model string,
+	generate int,
+	printgen bool,
+	verbose bool,
+) {
 
 	if verbose {
 		log.Printf("Parse Settings: ")
@@ -93,10 +104,12 @@ func ParseInput(in string, language string, block int, model string, verbose boo
 	// TODO: delete `data` from memory! If we've encoded, we
 	// don't require the string bytes anymore...
 
+	start := time.Now()
 	parser := EFNLPParser{Lang: &lang}
 	parser.Parse(tokenized, block, verbose)
+	duration_ns := time.Since(start).Milliseconds()
 	if verbose {
-		log.Println("Parsed model from tokenized input")
+		log.Printf("Parsed model from tokenized input in %dms", duration_ns)
 	}
 
 	if len(model) > 0 {
@@ -104,6 +117,30 @@ func ParseInput(in string, language string, block int, model string, verbose boo
 		if verbose {
 			log.Printf("Dumped model (proto) to file %s", model)
 		}
+	}
+
+	if generate > 0 {
+
+		G := uint32(generate)
+		B := uint32(block)
+
+		start = time.Now()
+		prompt := []TokenType{0}
+		gen, err := parser.Trees.Generate(G, B, prompt)
+		duration_us := time.Since(start).Microseconds()
+		if err != nil {
+			log.Fatalf("Failed to generate text: %v", err)
+		}
+		log.Printf("Generated %d tokens at %f us/tok", G, float64(duration_us)/float64(G))
+
+		if printgen {
+			str, err := lang.Decode(gen)
+			if err != nil {
+				log.Fatalf("Failed to decode generated text: %v", err)
+			}
+			log.Printf("Generated: %s", str)
+		}
+
 	}
 
 }

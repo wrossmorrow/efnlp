@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"math/rand"
+	"os"
 	"unsafe"
 
 	aws "github.com/aws/aws-sdk-go/aws"
@@ -220,10 +220,10 @@ func (s *Sampler) Sample() (TokenType, error) {
 		r -= fc
 	}
 
-	// supp R == [0,total], where total == sum(counts), so 
+	// supp R == [0,total], where total == sum(counts), so
 	// if we've subtracted all the counts (`c`) and have not
 	// returned already (ie r > 0) there's a problem with the
-	// distribution. 
+	// distribution.
 	return TokenType(0), errors.New("Malformed distribution in sampler")
 }
 
@@ -462,8 +462,8 @@ func (s *SuffixTreeSet) Generate(
 
 }
 
-type EFNLPParser struct{
-	Lang *Language
+type EFNLPParser struct {
+	Lang  *Language
 	Trees *SuffixTreeSet
 }
 
@@ -473,7 +473,7 @@ func (P *EFNLPParser) Parse(tokseq []TokenType, blockSize int, verbose bool) {
 	P.Trees.EmptyInit()
 
 	// enumerate block-size-long sequences, parsing each with it's successor
-	for i := blockSize ; i < len(tokseq)-1 ; i++ {
+	for i := blockSize; i < len(tokseq)-1; i++ {
 		P.Trees.Parse(tokseq[i-blockSize:i], tokseq[i])
 	}
 
@@ -487,25 +487,24 @@ func (P *EFNLPParser) Dump(out string, compress bool) error {
 	}
 
 	data, err := proto.Marshal(Pp) // data []byte
-    if err != nil {
-    	return err
-    }
+	if err != nil {
+		return err
+	}
 
-    // compress with gzip 
-    if compress {
-    	gz, err := GzBytes(data) // gz []byte
-    	if err != nil {
-    		return err
-    	}
-    	err = os.WriteFile(out, gz, 0644)    
-    } else {
-    	err = os.WriteFile(out, data, 0644)
-    }
+	// compress with gzip
+	if compress {
+		gz, err := GzBytes(data) // gz []byte
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(out, gz, 0644)
+	} else {
+		err = os.WriteFile(out, data, 0644)
+	}
 
-    if err != nil {
-    	return err
-    }
+	if err != nil {
+		return err
+	}
 	return nil
 
 }
-

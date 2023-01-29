@@ -1,0 +1,109 @@
+B = 1
+2023/01/28 21:20:11 Parse Settings: 
+2023/01/28 21:20:11   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:11   language: ../cpp/language.proto.bin
+2023/01/28 21:20:11   model: 
+2023/01/28 21:20:11 Read language into memory
+2023/01/28 21:20:11 Read input in memory
+2023/01/28 21:20:11 Tokenized input in memory
+2023/01/28 21:20:11 Parsed model from tokenized input in 49ms
+2023/01/28 21:20:11 Generated 10000 tokens at 0.070300 us/tok
+
+B = 2
+2023/01/28 21:20:12 Parse Settings: 
+2023/01/28 21:20:12   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:12   language: ../cpp/language.proto.bin
+2023/01/28 21:20:12   model: 
+2023/01/28 21:20:12 Read language into memory
+2023/01/28 21:20:12 Read input in memory
+2023/01/28 21:20:12 Tokenized input in memory
+2023/01/28 21:20:12 Parsed model from tokenized input in 109ms
+2023/01/28 21:20:12 Generated 10000 tokens at 0.107100 us/tok
+
+B = 3
+2023/01/28 21:20:13 Parse Settings: 
+2023/01/28 21:20:13   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:13   language: ../cpp/language.proto.bin
+2023/01/28 21:20:13   model: 
+2023/01/28 21:20:13 Read language into memory
+2023/01/28 21:20:13 Read input in memory
+2023/01/28 21:20:13 Tokenized input in memory
+2023/01/28 21:20:13 Parsed model from tokenized input in 222ms
+2023/01/28 21:20:13 Generated 10000 tokens at 0.175600 us/tok
+
+B = 4
+2023/01/28 21:20:14 Parse Settings: 
+2023/01/28 21:20:14   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:14   language: ../cpp/language.proto.bin
+2023/01/28 21:20:14   model: 
+2023/01/28 21:20:14 Read language into memory
+2023/01/28 21:20:14 Read input in memory
+2023/01/28 21:20:14 Tokenized input in memory
+2023/01/28 21:20:15 Parsed model from tokenized input in 361ms
+2023/01/28 21:20:15 Generated 10000 tokens at 0.348200 us/tok
+
+B = 5
+2023/01/28 21:20:15 Parse Settings: 
+2023/01/28 21:20:15   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:15   language: ../cpp/language.proto.bin
+2023/01/28 21:20:15   model: 
+2023/01/28 21:20:15 Read language into memory
+2023/01/28 21:20:15 Read input in memory
+2023/01/28 21:20:16 Tokenized input in memory
+2023/01/28 21:20:16 Parsed model from tokenized input in 585ms
+2023/01/28 21:20:16 Generated 10000 tokens at 0.482200 us/tok
+
+B = 7
+2023/01/28 21:20:17 Parse Settings: 
+2023/01/28 21:20:17   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:17   language: ../cpp/language.proto.bin
+2023/01/28 21:20:17   model: 
+2023/01/28 21:20:17 Read language into memory
+2023/01/28 21:20:17 Read input in memory
+2023/01/28 21:20:17 Tokenized input in memory
+2023/01/28 21:20:18 Parsed model from tokenized input in 1219ms
+2023/01/28 21:20:18 Generated 10000 tokens at 0.747500 us/tok
+
+B = 10
+2023/01/28 21:20:19 Parse Settings: 
+2023/01/28 21:20:19   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:19   language: ../cpp/language.proto.bin
+2023/01/28 21:20:19   model: 
+2023/01/28 21:20:19 Read language into memory
+2023/01/28 21:20:19 Read input in memory
+2023/01/28 21:20:19 Tokenized input in memory
+2023/01/28 21:20:22 Parsed model from tokenized input in 2649ms
+2023/01/28 21:20:22 Generated 10000 tokens at 1.671500 us/tok
+
+B = 12
+2023/01/28 21:20:23 Parse Settings: 
+2023/01/28 21:20:23   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:23   language: ../cpp/language.proto.bin
+2023/01/28 21:20:23   model: 
+2023/01/28 21:20:23 Read language into memory
+2023/01/28 21:20:23 Read input in memory
+2023/01/28 21:20:23 Tokenized input in memory
+2023/01/28 21:20:27 Parsed model from tokenized input in 4065ms
+2023/01/28 21:20:27 Generated 10000 tokens at 1.147800 us/tok
+
+B = 15
+2023/01/28 21:20:28 Parse Settings: 
+2023/01/28 21:20:28   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:28   language: ../cpp/language.proto.bin
+2023/01/28 21:20:28   model: 
+2023/01/28 21:20:28 Read language into memory
+2023/01/28 21:20:28 Read input in memory
+2023/01/28 21:20:28 Tokenized input in memory
+2023/01/28 21:20:33 Parsed model from tokenized input in 5217ms
+2023/01/28 21:20:33 Generated 10000 tokens at 1.182000 us/tok
+
+B = 20
+2023/01/28 21:20:34 Parse Settings: 
+2023/01/28 21:20:34   input: ../data/tinywillspeare.txt
+2023/01/28 21:20:34   language: ../cpp/language.proto.bin
+2023/01/28 21:20:34   model: 
+2023/01/28 21:20:34 Read language into memory
+2023/01/28 21:20:34 Read input in memory
+2023/01/28 21:20:34 Tokenized input in memory
+2023/01/28 21:20:43 Parsed model from tokenized input in 8488ms
+2023/01/28 21:20:43 Generated 10000 tokens at 1.798300 us/tok
