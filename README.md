@@ -38,12 +38,12 @@ cpp$ ./efnlp++ -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-result
 ```
 or the `go`
 ```shell
-	go run *.go -parse \
-		-input ../data/tinywillspeare.txt \
-		-language ../cpp/language.proto.bin \
-		-block $B \
-		-generate 10000 \
-		-print=false
+go$ go run *.go -parse \
+	-input ../data/tinywillspeare.txt \
+	-language ../cpp/language.proto.bin \
+	-block 10 \
+	-generate 10000 \
+	-print=false
 ```
 (note the use of a `language` datastructure in `proto` format). 
 
