@@ -42,7 +42,7 @@ $ python -m efnlp -h
 
 More comprehensive results are detailed in the following tables (see `paper/*.pdf` for more discussion): 
 
-| B | \# prefixes | r(B) | \# patterns | s(B) | avg &tau; | space |
+| B | \# prefixes | r(B) | \# patterns | s(B) | avg &tau; | memory |
 | --- | --- | --- | --- | --- | --- | --- |
 |  1 | 65 | 0.0\% | 1,403 | 0.1\% | 21.6 | 3kB |
 |  2 | 1,403 | 0.1\% | 11,556 | 1.0\% | 8.2 | 36kB |
@@ -56,7 +56,7 @@ More comprehensive results are detailed in the following tables (see `paper/*.pd
 | 20 | 1,103,358 | 98.9\% | 1,106,345 | 99.2\% | 1.0 | 133MB |
 
 
-|  B  | parse  |   t/&tau; | parse |  t/&tau; | parse |  t/&tau; |
+|  B  | py parse | py t/&tau; | go parse | go t/&tau; | c++ parse | c++ t/&tau; |
 | --- | ------ | --------- | ----- | -------- | ----- | -------- |
 |  1  | 1.0s   |  1.8&mu;s |  49ms | 0.1&mu;s |  51ms | 0.1&mu;s |
 |  2  | 2.0s   |  1.8&mu;s | 109ms | 0.1&mu;s | 151ms | 0.1&mu;s |
