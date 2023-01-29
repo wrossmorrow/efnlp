@@ -42,7 +42,7 @@ $ python -m efnlp -h
 
 More comprehensive results are detailed in the following tables (see `paper/*.pdf` for more discussion): 
 
-| B | \# prefixes | r(B) | \# patterns | s(B) | avg &tau; | memory |
+| B | \# prefixes | unique pref. | \# pattern | unique patt. | avg &tau; | memory |
 | --- | --- | --- | --- | --- | --- | --- |
 |  1 | 65 | 0.0\% | 1,403 | 0.1\% | 21.6 | 3kB |
 |  2 | 1,403 | 0.1\% | 11,556 | 1.0\% | 8.2 | 36kB |
