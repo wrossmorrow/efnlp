@@ -32,4 +32,17 @@ or
 go run *.go -client
 ```
 
-There's a quick take at a `docker` setup here too, of course. 
+You can also parse with 
+```shell
+just run -parse -input ../data/tinywillspeare.txt \
+	-language ../cpp/language.proto.bin \
+	-block 20 -model model20.proto.bin.gz
+```
+or 
+```shell
+go run *.go -parse -input ../data/tinywillspeare.txt \
+	-language ../cpp/language.proto.bin \
+	-block 20 -model model20.proto.bin.gz
+```
+
+There's a quick take at a `docker` setup here too. See `Dockerfile`. 

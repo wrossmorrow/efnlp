@@ -5,12 +5,8 @@ __pycache__
 *egg*
 /dist
 /build
-
+venv
 .mypy_cache
 .pytest_cache
 
-*.secret.*
-
-# block site/deploy (for now)
-site
-
+wordcount

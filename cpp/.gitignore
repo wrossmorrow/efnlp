@@ -7,7 +7,7 @@ CMakeFiles
 _deps
 
 # don't commit binary
-efnlp
+efnlp++
 
 # don't commit proto codegen
 *.pb.h
@@ -15,6 +15,6 @@ efnlp
 
 # don't commit written proto or json
 *.proto.bin*
-*.json.*
+*.json*
 
 sample-results.txt

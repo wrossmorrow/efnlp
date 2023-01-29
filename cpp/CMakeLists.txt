@@ -14,9 +14,9 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 
 find_package(Protobuf REQUIRED)
 include_directories(${Protobuf_INCLUDE_DIRS})
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS proto/efnlp.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ../proto/efnlp.proto)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(efnlp main.cpp ${PROTO_SRCS} ${PROTO_HDRS})
-target_link_libraries(efnlp PRIVATE spdlog::spdlog nlohmann_json::nlohmann_json ${Protobuf_LIBRARIES})
+add_executable(efnlp++ main.cpp ${PROTO_SRCS} ${PROTO_HDRS})
+target_link_libraries(efnlp++ PRIVATE spdlog::spdlog nlohmann_json::nlohmann_json ${Protobuf_LIBRARIES})
