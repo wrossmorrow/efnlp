@@ -19,19 +19,33 @@ Obviously if simple (C)EF models were of comparable quality to modern LLMs they 
 You can run the `python` code from the CLI as
 ```shell
 $ python -m efnlp -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-results.txt
-[2023-01-21T18:31:07.445610] Forming (character) language
-[2023-01-21T18:31:07.491561] Encoding corpus
-[2023-01-21T18:31:07.569177] Corpus is 1,115,393 tokens long
-[2023-01-21T18:31:07.569217] Parsing prefix/follower tokens
-[2023-01-21T18:31:41.985965] Normalizing to empirical frequencies
-[2023-01-21T18:31:51.631065] Memory (roughly) required: 62.4 MB (about 8,183,314 dbl, 16,366,628 fl)
-[2023-01-21T18:31:51.631112] Sampling and decoding 100000 tokens
-[2023-01-21T18:31:52.810630] Writing sampled results to sample-results.txt
+[2023-01-28T21:37:56.223686 | 0.000020s] Reading text corpus
+[2023-01-28T21:37:56.225040 | 0.001374s] Forming (character) language
+[2023-01-28T21:37:56.273636 | 0.049969s] Encoding corpus in the language constructed
+[2023-01-28T21:37:56.345648 | 0.122002s] Corpus is 1,115,393 tokens long
+[2023-01-28T21:37:56.345711 | 0.122036s] Parsing prefix/successor tokens
+[2023-01-28T21:38:24.269634 | 28.045963s] Parsed prefixes and successors in corpus in 27923.90ms
+[2023-01-28T21:38:27.680794 | 31.457128s] Found 858,920 prefixes (77.0% of possible)
+[2023-01-28T21:38:34.836321 | 38.612656s] Found 937,254 patterns (84.0% of possible)
+[2023-01-28T21:38:37.554198 | 41.330531s] Memory (roughly) required: 31.9 MB (about 4,177,347 dbl, 8,354,695 fl)
+[2023-01-28T21:38:37.554237 | 41.330562s] Sampling and decoding 100000 tokens
+[2023-01-28T21:38:38.493836 | 42.270165s] Generation frequency: 9.4 us/tok
+[2023-01-28T21:38:38.493869 | 42.270194s] Writing sampled results to sample-results.txt
 ```
 (for which you can see generated text in [`results`](/sample-results.txt)). The compiled `c++` is similar, 
 ```shell
-cpp$ ./efnlp -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-results.txt
+cpp$ ./efnlp++ -c data/tinywillspeare.txt -m -s -b 10 -g 100000 -o sample-results.txt
 ```
+or the `go`
+```shell
+	go run *.go -parse \
+		-input ../data/tinywillspeare.txt \
+		-language ../cpp/language.proto.bin \
+		-block $B \
+		-generate 10000 \
+		-print=false
+```
+(note the use of a `language` datastructure in `proto` format). 
 
 Our "model" here (in `python`) is, more or less, 8M `double`s worth of "parameters" and "trains" (estimates) in a single process on an (old) macbook in under a minute (for 10-token sequence statistics). Sampling is basically constant time, relying on hashmaps; the example above takes about 0.1ms per character sampled (with zero code optimizations). The (C)EF "model" are a significant inflation of the data size: 1.1MB of data turns into 62.4MB of statistics. But honestly the results aren't that bad. It's junk of course, but on the surface comparable to generative text from a 10M parameter transformer style model applied to the same dataset that trained for 15 minutes on a GPU ([tweet here](https://twitter.com/karpathy/status/1615400286293753856?cxt=HHwWgIDUqY2Ah-ssAAAA), [code here](https://github.com/karpathy/nanoGPT)). 
 
