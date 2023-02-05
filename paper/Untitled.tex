@@ -109,7 +109,7 @@ Presuming we have the (C)EFs, how can we ``validate''? We quote ``validate'' pre
 
 \section{A Simple Example}
 
-The code `efnlp` takes a perhaps shockingly naive approach to modeling (C)EFs. We use `dict`-based suffix trees to parse a (character) tokenized corpus of text, and generate text with a best-matching-marginal sampling approach as discussed above. 
+The code \texttt{efnlp} takes a perhaps shockingly naive approach to modeling (C)EFs. We use \texttt{dict}-based ``suffix trees'' (not literally, more like simple tries) to parse a (character) tokenized corpus of text, and generate text with a best-matching-marginal sampling approach as discussed above. 
 
 Some researchers use the full corpus of Shakespeare's writing to quickly analyze language models. Here is the start of sample of 10k token long generated Shakespeare using (C)EFs with character tokens and 10-token sequences: 
 \begin{displayquote}
@@ -146,7 +146,7 @@ $ python -m efnlp -c data/tinywillspeare.txt \
 [...:31:52.810630] Writing sampled results to \
 	sample-results.txt
 \end{lstlisting}
-We shorten an ISO timestamp in the ``logs'' here, and first number in the log (\texttt{31}) is the minutes place. Note the entire exercise -- encoding, estimating, and generating -- completes in under a minute. Sampling 10k tokens takes about a second (1.2s, for about 0.1ms per token sampled). We more or less store $6x$ the corpus volume in (C)EF data, the equivalent of 8M texttt{double}s (16M \texttt{float}s). This is all on a 4-year-old 2.3 GHz i9 with 16GB 2.7 GHz memory without any attention to code optimization (e.g., our datastructure is likely wasteful), in a single process, and with a bunch of other stuff (including chrome) running. 
+We shorten an ISO timestamp in the ``logs'' here, and first number in the log (\texttt{31}) is the minutes place. Note the entire exercise -- encoding, estimating, and generating -- completes in under a minute. Sampling 10k tokens takes about a second (1.2s, for about 0.1ms per token sampled). We more or less store $6x$ the corpus volume in (C)EF data, the equivalent of 8M texttt{double}s (16M \texttt{float}s). This is all on a 4-year-old 2.3 GHz i9 with 16GB 2.7 GHz memory without any attention to code optimization (e.g., our datastructure is definitely wasteful), in a single process, and with a bunch of other stuff (including chrome) running. 
 
 One take at a NN-LLM using transformers modeling this data claims to do a decent job with 10M parameters (so more memory if \texttt{double}s, less if \texttt{float}s) after estimating parameters on a GPU (and SOTA software) for 15mins. Sampling time for generation is not available, nor is a sample, for comparison; though tree based lookups and simple random sampling is likely to be dramatically more efficient than layers of linear and nonlinear operations with 10M parameters. 
 
