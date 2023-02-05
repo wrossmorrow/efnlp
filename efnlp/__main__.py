@@ -2,7 +2,7 @@ import argparse
 
 from datetime import datetime as dt
 
-from . import CharLanguage, SuffixTreeSet
+from . import Language, SuffixTreeSet
 
 header = """
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -31,8 +31,24 @@ def cli() -> argparse.Namespace:
         "--corpus",
         type=str,
         default=None,
-        required=True,
+        # required=True,
         help="""File name containing corpus data""",
+    )
+
+    parser.add_argument(
+        "-L",
+        "--language",
+        type=str,
+        default=None,
+        help="""Language file (protobuf)""",
+    )
+
+    parser.add_argument(
+        "-M",
+        "--model",
+        type=str,
+        default=None,
+        help="""Model file (protobuf)""",
     )
 
     parser.add_argument(
@@ -115,7 +131,10 @@ class TimedPrinter:
         self._started = dt.now()
 
     def __call__(self, msg: str) -> None:
-        print(f"[{dt.now().isoformat()} | {since(self._started):.6f}s] {msg}")
+        print(f"[{dt.now().isoformat()} | {self.elapsed():.6f}s] {msg}")
+
+    def elapsed(self) -> float:
+        return since(self._started)
 
 
 if __name__ == "__main__":
@@ -124,24 +143,34 @@ if __name__ == "__main__":
 
     _print = TimedPrinter()
 
+    if args.language:
+        L = Language.from_proto_file(args.language)
+        print(L)
+    else:
+        raise ValueError("language is required (for now)")
+
+    if args.model:
+        M = SuffixTreeSet.from_proto_file(args.model)
+        print(M)
+
     if args.verbose:
         _print("Reading text corpus")
 
-    data: str
+    corpus: str = ""
     with open(args.corpus, "r") as f:
-        data = f.read()
+        corpus = f.read()
+
+    # if args.verbose:
+    #     _print("Forming (character) language")
+
+    # L = Language.from_corpus(data)
 
     if args.verbose:
-        _print("Forming (character) language")
+        _print("Encoding corpus in the language")
 
-    L = CharLanguage.from_corpus(data)
+    encoded = L.encode(corpus)
 
-    if args.verbose:
-        _print("Encoding corpus in the language constructed")
-
-    C = L.encode(data)
-
-    N = len(C)  # Note: needs to be size in _tokens_ not corpus chars (may differ)
+    N = len(encoded)  # Note: needs to be size in _tokens_ not corpus chars (may differ)
     B = args.block_size
     G = args.generate
 
@@ -150,16 +179,16 @@ if __name__ == "__main__":
 
     # split
     Sp = int(args.split * N)
-    Ct, Cv = (C[:Sp], C[(Sp - B - 1) :]) if args.split < 1.0 else (C, [])
+    Ct, Cv = (encoded[:Sp], encoded[(Sp - B - 1) :]) if args.split < 1.0 else (encoded, [])
 
     if args.verbose:
         _print("Parsing prefix/successor tokens")
 
     ps = dt.now()
-    S = SuffixTreeSet(L.size)
-    for i in range(B, N - 1):
-        S.parse(C[i - B : i], C[i])
-    pt = (dt.now()-ps).total_seconds()*1000
+    S = SuffixTreeSet().parse_all(encoded, B)
+    # for i in range(B, N - 1):
+    #     S.parse(C[i - B : i], C[i])
+    pt = (dt.now() - ps).total_seconds() * 1000
 
     if args.verbose and args.stats:
         _print(f"Parsed prefixes and successors in corpus in {pt:0.2f}ms")
@@ -191,7 +220,7 @@ if __name__ == "__main__":
         gs = dt.now()
         shake = L.decode(S.generate(G, B, L.encode(args.prompt)))
         if args.verbose:
-            gf = 1e6*(dt.now()-gs).total_seconds()/G
+            gf = 1e6 * (dt.now() - gs).total_seconds() / G
             _print(f"Generation frequency: {gf:0.1f} us/tok")
 
         if args.output:

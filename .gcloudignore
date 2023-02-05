@@ -1,0 +1,13 @@
+# Ignore everything
+*
+
+# Allow files and folders with a pattern starting with !
+!Dockerfile.pybeam
+!proto
+
+!efnlp
+efnlp/__pycache__
+
+!cpp/efnlp.hpp
+!cpp/main.cpp
+!cpp/CMakeLists.txt

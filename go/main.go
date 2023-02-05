@@ -94,7 +94,7 @@ func ParseInput(
 		log.Println("Read input in memory")
 	}
 
-	tokenized, err := lang.Encode(string(data)) // TODO: cast ok? copies?
+	tokenized, err := lang.Encode(string(data), false) // TODO: cast ok? copies?
 	if err != nil {
 		log.Fatalf("Failed to tokenize input: %v", err)
 	}
@@ -121,8 +121,8 @@ func ParseInput(
 
 	if generate > 0 {
 
-		G := uint32(generate)
-		B := uint32(block)
+		G := generate
+		B := block
 
 		start = time.Now()
 		prompt := []TokenType{0}
@@ -191,7 +191,7 @@ func RunClient(host string, port int, verbose bool) {
 	log.Println("Running client")
 	err := C.Connect(host, port)
 	if err != nil {
-		log.Fatalf("Failed to connect: %w", err)
+		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer C.Close()
 
@@ -199,7 +199,7 @@ func RunClient(host string, port int, verbose bool) {
 		log.Println("Attempting to get valid text")
 		resp, err := C.GetValidText()
 		if err != nil {
-			log.Fatalf("Failed to get valid text: %w", err)
+			log.Fatalf("Failed to get valid text: %v", err)
 		}
 		log.Printf("Successfully got valid text: %v", resp)
 	}

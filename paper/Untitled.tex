@@ -167,32 +167,97 @@ A more ``realistic'' (minimum) storage scaling concept is $(N-B-1)(B+1+d)r(B)s(B
 \end{equation*}
 (leaving $N$ implicit). Broadly speaking we (probably) know some features of these ``functions'' $r$ and $s$. Specifically, $r(1) = L/N$ ($\ll 1$), $r(B) \leq 1$ (by definition), and $r(B) \uparrow 1$; in fact $r(N-2) = 1$, because $\#\text{ of prefixes} \to 1$. Also $s(B) \geq 1$ (every prefix has at least one pattern) and probably $s(B) \downarrow 1$ (as longer prefixes are considered, their successors are more likely to be unique). Note that $r(B)$ is not the fraction of {\em possible} prefixes, which would instead be $(\#\text{ of prefixes}/T^B)$ but we should probably expect that in ``natural'' language the number of {\em valid} prefixes is far, far smaller than $T^B$ (while admitting it may be much larger than $N-B-1$). Loosely speaking, if $T^B$ is at all relevant, the language would seem to be highly unstructured. 
 
-As an example, for the $1,115,393$ tokens of all of Shakespeare we have the following parsing results:
+As an example, for the $1,115,393$ tokens of all of Shakespeare we have the following parsing details:
 \begin{center}
 \begin{small}
-\begin{tabular}{ r r c r c r r r r r r}
-        &                  &             &                   &             &                   &      & \multicolumn{2}{c}{\texttt{python}} & \multicolumn{2}{c}{\texttt{c++} -O3} \\ \cline{8-9} \cline{10-11}
- $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & avg $\tau$ & space & parse & gen & parse & gen/$\tau$ \\ \hline
- 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 3kB & 1.0s & 1.8$\mu$s & 51ms & 0.1$\mu$s \\  
- 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 36kB & 2.0s & 1.8$\mu$s & 151ms & 0.1$\mu$s \\  
- 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 221kB & 3.3s & 2.5$\mu$s & 297ms & 0.4$\mu$s \\
- 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 876kB & 4.3s & 3.2$\mu$s & 561ms & 0.4$\mu$s \\
- 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 2.5MB & 6.4s & 3.6$\mu$s & 1.2s & 0.5$\mu$s \\
- 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 10.1MB & 12.0s & 5.0$\mu$s & 1.8s & 0.8$\mu$s \\
- 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 31.9MB & 28.0s & 7.2$\mu$s & 3.4s & 1.1$\mu$s \\  
- 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 50.4MB & 37.3s & 8.3$\mu$s & 4.1s & 1.2$\mu$s \\
- 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 80.6MB & 54.3s & 10.0$\mu$s & 5.4s & 1.4$\mu$s \\  
- 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 133MB & 129.0s & 42.7$\mu$s & 7.8s & 1.5$\mu$s \\  \hline
+\begin{tabular}{ r r c r c r r }
+ $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & $\tau$/prefix & memory \\ \hline
+ 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 3kB \\  
+ 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 36kB \\  
+ 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 221kB \\
+ 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 876kB \\
+ 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 2.5MB \\
+ 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 10.1MB \\
+ 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 31.9MB \\  
+ 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 50.4MB \\
+ 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 80.6MB \\  
+ 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 133MB \\  \hline
 \end{tabular}
 \end{small}
 \end{center}
-Note the ``gen/$\tau$'' is a time per token drawn with 10k draws. 
+With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$, we definitely have far fewer successors than ``random'' ($22 ~ T/3$). Still the generative output from such a sparse model is expectedly and unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively), and 20-token prefixes are for all intents and purposes unique. (To be clear, by ``unique'' here we mean non-recurrent in the corpus.) The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have {\em at least one successor}, so if we have (even on average) a {\em single} successor per prefix we have probably captured all there is to capture from prefix sequences. 
 
-With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$, we definitely have far fewer successors than ``random'' ($22 ~ T/3$). Still the generative output from such a sparse model is expectedly and unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively), and 20-token prefixes are for all intents and purposes unique. To be clear, by ``unique'' here we mean non-recurrent in the corpus. The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have {\em at least one successor}, so if we have (even on average) a {\em single} successor per prefix we have probably captured all there is to capture from prefix sequences. 
+Parsing and generation (sampling) times are also important, and listed in the table below for implementations in three languages. Generation of 1M samples was used to estimate the ``time/tok'' frequency (time per token) 
+\begin{center}
+\begin{small}
+\begin{tabular}{ r r c r c r r r r r r}
+  & \multicolumn{2}{c}{\texttt{python}} & \multicolumn{2}{c}{\texttt{go}} & \multicolumn{2}{c}{\texttt{c++} -O3} \\
+ $B$ & parse & time/tok & parse & time/tok & parse & time/tok \\ \hline
+ 1 & 1.0s & 1.4$\mu$s & 49ms & 0.1$\mu$s & 131ms & 0.1$\mu$s \\  
+ 2 & 2.0s & 1.7$\mu$s & 109ms & 0.1$\mu$s & 248ms & 0.2$\mu$s \\  
+ 3 & 3.3s & 2.1$\mu$s & 222ms & 0.2$\mu$s & 419ms & 0.3$\mu$s \\
+ 4 & 4.3s & 2.6$\mu$s & 361ms & 0.3$\mu$s & 612ms & 0.4$\mu$s \\
+ 5 & 6.4s & 3.2$\mu$s & 585ms & 0.5$\mu$s & 1.1s & 0.5$\mu$s \\
+ 7 & 12.0s & 4.9$\mu$s & 1.2s & 0.7$\mu$s & 2.0s & 0.7$\mu$s \\
+ 10 & 28.0s & 7.0$\mu$s & 2.6s & 0.9$\mu$s & 1.9s & 0.8$\mu$s \\  
+ 12 & 37.3s & 8.3$\mu$s & 4.1s & 1.1$\mu$s & 2.5s & 1.0$\mu$s \\
+ 15 & 54.3s & 9.7$\mu$s & 5.2s & 1.2$\mu$s & 3.2s & 1.0$\mu$s \\  
+ 20 & 129.0s & 12.7$\mu$s & 8.4s & 1.6$\mu$s & 4.4s & 1.3$\mu$s \\  \hline
+\end{tabular}
+\end{small}
+\end{center}
+Unsurprisingly, compiled \texttt{go} and \texttt{c++} implementations are faster. Parsing times are a fraction than in the \texttt{python} code. Sampling can be done in O($\mu$s) per token in each implementation, but still roughly an order of magnitude faster than \texttt{python} with \texttt{go} or \texttt{c++}. 
 
-A \texttt{c++} implementation is much faster, but otherwise identical. Parsing times are orders of magnitude faster than in \texttt{python} code; particularly, sampling can be done in O($\mu$s) instead of O(ms) per token. 
+\section{Languages}
 
+There are surely deep fields with associated terminology related to NLP we do not know. Here, a \texttt{language} is an encoding strategy for turning text into tokens; it might also be appropriately called a \texttt{tokenizer}, though that conflicts a bit with a specific instantiation of an algorithm for doing so. Text is drawn from a character alphabet, probably unicode (e.g. \texttt{utf-8}), and associated to tokens $\{1,\dotsc,N\}$ through a \texttt{language}. Formally, a \texttt{language} $\mathcal{L}$ is a surjective mapping
+\begin{equation*}
+	\mathcal{L} : \mathcal{S}(\{1,\dotsc,N\}) \to \mathcal{S}(\mathcal{A})
+\end{equation*}
+between sequence sets of the token space $\{1,dotsc,N\}$ and the text alphabet $\mathcal{A}$. (Note in software the tokens will start at $0$ not $1$ but this is an artificial distinction.) Two token sequences may map to the same text, but no text is {\em not} mapped to at least one token sequence. The \texttt{language}s we consider are based on ``sequence encoders'': {\em ordered} subsets $\mathcal{E}_{<} \subset \mathcal{S}(\mathcal{A})$ identified to tokens by their index in the ordering. Obviously any such sequence encoder is an equivalence class over permutations in the ordering. 
 
+Consider for example the alphabet $\mathcal{A} = \{a, b\}$, and the trivial encoder $\mathcal{E}_{<} = (\{a\},\{b\})$ with $a < b$. In this case sequences of the alphabet are identified (uniquely) to binary strings (taking the token space to be $\{0,1\}$). Our \texttt{language} $\mathcal{L}$ is the substitution mapping
+\begin{equation*}
+	(\mathcal{L}(t_n))_n = (1-t_n)a + t_nb
+\end{equation*}
+admitting some severely abusing notation. Consider instead $\mathcal{E}_{<} = (\{aa\},\{a\},\{b\})$ with $aa < a < b$. Now the mapping is no longer unique, for there are two ways to ``render'' $aa$: $\mathcal{L}(0) = aa$ and $\mathcal{L}(1,1) = aa$. 
 
+From the perspective of ``decoding'' token sequences non-uniqueness is not an issue. For encoding, however, it raises questions about how to choose between associations. Encoding here means affecting the inverse map $\mathcal{L}^{-1}$ to turn text into tokens. It is reasonable to suppose we have a preference for {\em compression}: when encoding choose the {\em shortest} token sequence that represents the text. 
+
+Greedily encoding text with the longest match using either prefix or suffix search (alone) can fail. Consider $\mathcal{E}_{<} = (\{aa\},\{ab\},\{a\})$ with $aa < ab < a$. A greedy forward prefix search of $aab$ encodes $aa \to 0$ but is then left with $b$ which is un-encodable; the only encoding is, of course, $(2,1)$. Consider instead $\mathcal{E}_{<} = (\{aa\},\{ba\},\{a\})$ with $aa < ba < a$. A greedy backwards suffix search of $baa$ again encodes $aa \to 0$ and is left with $b$ which is un-encodable. The encoding should be $(1,2)$ These examples have two characteristics: First, the encodings are {\em not} ``character-complete'' by which we mean 
+\begin{equation*}
+	(c_1, \dotsc, c_N) \in \mathcal{E} \quad\implies\quad c_n \in \mathcal{E} \text{ for all } n
+\end{equation*}
+(every character is encodable on its own). Specifically, the failures in the examples rely on us not being able to encode $b$ alone. Second, greedy suffix search would overcome the greedy prefix failure, and greedy prefix search would overcome the greedy suffix failure. We may return to this later as a heuristic encoding strategy, but it's a bit superfluous. 
+
+The first observation is more fundamental: If an encoding is character-complete then any sequence is greedily encodable (at all) with either greedy prefix or suffix search. We may not have the {\em shortest} encoding, but at least we know the algorithm cannot fail to encode. Notably, OpenAI's GPT-2 encoder referenced in their \texttt{tiktoken} codebase is character-complete in the sense defined above, and hence greedy algorithms could be applicable. 
+
+Why would we burden ourselves with multi-character encodables at all? 
+
+First, it is a reasonable thing to expect from the grammar of languages. Consider the bane of many an english student: ``$i$ before $e$ except after $c$''. Taken too literally, this means $[abde \dotsb z]ei$ (e.g. ``$(sei)ze$'') should {\em not occur} but $cei$ (``$(cei)ling$'') should. Of course, the rule is ``wrong'', as ``$(hei)ght$'' or ``$spe(cie)s$'' shows. In any case we might define an encoder with $cei$ and $Xie$ for all $X \neq c$ to ``represent'' rules around the digraphs $ie$ and $ei$. We might similarly wish to encode other common character concatenations, e.g. $th$, $gh$, $ion$, $ing$ etc, purely out of a desire to better represent character occurrences in text. 
+
+At this point it is worth noting that any such activity is a layer of language modeling in itself. Consider, for example, a tokenization based on all english words (plus a space, maybe pluralization, and some punctuation). A (C)EF model of token sequences for such an encoding would be a model of contraction-less sentence construction. No characters could be garbled, but nonsensical sayings could certainly emerge. Moreover, it should be apparent that our suffix tree modeling approach to (C)EFs will, in effect, {\em find} what co-character occurrences are common; in fact, this is almost a complete algorithm to {\em find} encodable multi-character sequences (more or less, build a character based tree and ``merge'' edges that are unique or have high probability). 
+
+Second, tokenizing longer character sequences is may be computationally efficient. The more ``language'' information that is packed into tokens, the more ``text'' we can model with a shorter token sequence. From the (C)EF perspective we can effectively have a longer Markov chain rendering with the same tree depth. The ``cost'' (if any) will come from a larger token space. Shakespeare can be constructed from only 65 of the 128 ASCII characters; english Wikipedia (according to a 2020 Kaggle dataset) has only 168 UTF-8 characters in it's top 0.0005\% of character occurrences. 
+
+\subsection{Is Greedy Encoding Fast? Or ``Smart''?}
+
+\texttt{tiktoken} tokenization of shakespeare with the GPT-2 encoder takes about 334ms. This library is not pure python, utilizing compiled \texttt{rust} code for basic operations to enhance speed. Greedy tokenization of shakespeare in pure \texttt{python} with GPT-2 encoder takes about 114s, but only about 50ms in \texttt{go}. 
+
+Greedy suffix encoding compresses the 1,115,393 characters in shakespeare by about half (48\%) using a token sequence with 541,060 tokens. \texttt{tiktoken} encodes a much smaller token string with 338,024 tokens (30\% of original, 62\% of greedy). The following table summarizes the distribution, via counts (histogram) of tokens that have the same decoded string lengths, using these two tokenization strategies: 
+\begin{center}
+\begin{small}
+\begin{tabular}{ l r r r r r r r r r r r }
+& \multicolumn{11}{c}{decoded string length (\# UTF-8 characters)} \\ \cline{2-12}
+method & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10+ & 2+ \\ \hline
+\texttt{tiktoken} & 100,222 & 39,141 & 54,712 & 49,361 & 45,883 & 21,685 & 12,194 & 7,929 & 3,782 & 3,115 & 237,802 \\
+greedy suffix & 296,177 & 72,256 & 76,582 & 57,743 & 23,711 & 8,929 & 4,064 & 1,144 & 334 & 120 & 244,883 \\  \hline
+\end{tabular}
+\end{small}
+\end{center}
+
+The greedy (suffix) encoding is biased towards short strings, with more than half (296k vs 244k) of the encoded tokens representing a single character. In contrast, \texttt{tiktoken} renders Shakespeare with half as many tokens representing single instead of multiple characters (100k vs 237k). (Note that greedy suffix search has more multi-character tokens, but that's only because it has more tokens overall.) In this sense, we should probably consider greedy encoding ``dumb'' (or ``dumber'' than \texttt{tiktoken}) in that it compresses the text less, implicitly meaning fewer cohesive language units are picked up in the encoding. 
+
+To be clear, these comparisons are about {\em compression} and contain no information about {\em effectiveness}, at least on their own. 
 
 \end{document}

@@ -12,24 +12,47 @@ message Version {
 message Language {
 	// A "language" specifies how to convert (utf-8?) character sequences into 
 	// "token" sequences. A "token" is just a uint32. Here, we use a list of 
-	// "Encoder" objects that map 
+	// "Encoder" objects that map strings to tokens (proto will compress them).
 	string name = 1;
 	Version version = 2;
-	repeated Encoder lang = 3;
+	repeated SuffixEncoder suffixes = 3;
+	LanguageOptions options = 4;
+	LanguageStats stats = 5;
 }
 
-message Encoder {
-	uint32 token = 1;
-	string data = 2; // utf-8 or 7b ASCII text less than 2**32 units long (~ 4B chars)
-
-	// More general?
-	// oneof data {
-	// 	uint8 char = 3; // 8 doesn't exist, just 32, 64
-	// 	string str = 4;
-	// 	bytes bin = 5
-	// }
+message LanguageOptions {
+	UnknownHandler unknown = 1; // how to handle unknown data/tokens
+	repeated SuffixEncoder special = 2; // "special" token encodings
 }
 
+message LanguageStats {
+	uint32 size = 1; 	// more than 32 would be cray cray
+	uint32 depth = 2;	// more than 32 would be cray cray
+}
+
+message UnknownHandler {
+	// an encoder for unknown tokens/string data... if data is encountered
+	// (and parse_unknown_data == true) encode it as the listed token; 
+	// conversely if an unknown token is encountered (and parse_unknown_token
+	// == false) decode it as the listed string. 
+	bool parse_unknown_data = 1; // default false (code should raise an error)
+	bool parse_unknown_token = 2; // default false (code should raise an error)
+	SuffixEncoder unknown = 3; // default SuffixEncoder{0, 0, 0, []}
+}
+
+message SuffixEncoder {
+	// The token (maybe). An Encoder plays a role in realizing suffix trees, 
+	// wherein we break up any bytestrings into bytes and parse "backwards"
+	// to find longest matching suffixes. This is a recursive datastructure 
+	// for modeling that style of suffix tree. 
+	string value = 1; // UTF-8 string components (code points)
+	uint32 depth = 2;
+	uint32 token = 3; // uint16 is enough; proto serialization compresses ints
+	bool atom = 4;
+	repeated SuffixEncoder prefixes = 5;
+}
+
+// TBD: a Token message would make units clean across uses, but the schema annoying
 message Token {
 	uint32 value = 1;
 }

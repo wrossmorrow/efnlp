@@ -1,0 +1,10 @@
+# Ignore everything
+*
+
+# Allow files and folders with a pattern starting with !
+!proto/*.proto
+!efnlp/*.py
+!cpp/CMakeLists.txt 
+!cpp/*.hpp 
+!cpp/*.cpp
+!beam/shims/*.py

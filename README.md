@@ -85,7 +85,7 @@ What follows are comparative parsing/generation speeds (for sampling 1M tokens):
 | 20  | 129.0s | 12.7&mu;s |  8.4s | 1.6&mu;s |  4.4s | 1.3&mu;s |
 
 
-Note (until we get better formatting) that the repeated "parse" (parse time) and "t/&tau;" (time per token) columns are for `python`, `go`, and `c++` respectively. With each we can generate text at O(&mu;s)/token. However compiled codes (`go` and `c++`) are faster and seem to scale a bit better with longer sequences. With compiled codee we can parse out the (C)EFs in shakespeare in seconds; while `python` is still "reasonable" it takes a couple minutes to parse 20-token sequences. 
+Note (until we get better formatting) that the repeated "parse" (parse time) and "t/&tau;" (time per token) columns are for `python`, `go`, and `c++` respectively. With each we can generate text at O(&mu;s)/token. However compiled codes (`go` and `c++`) are faster (roughly by an order of magnitude) and seem to scale a bit better with longer sequences. With compiled code we can parse out the (C)EFs in shakespeare in seconds; while `python` is still "reasonable" it takes a couple minutes to parse 20-token sequences. 
 
 ## Usage
 

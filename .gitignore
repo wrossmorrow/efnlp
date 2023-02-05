@@ -9,8 +9,13 @@ __pycache__
 .mypy_cache
 .pytest_cache
 
+*_pb2.py
+
 *.secret.*
+scratch
 
 # block site/deploy (for now)
 site
+
+rust
 

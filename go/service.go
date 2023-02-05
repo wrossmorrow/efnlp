@@ -148,12 +148,13 @@ func (s EFNLPService) GenerateBatch(
 		return nil, err
 	}
 
-	blockSize := s.model.GetDepth()
+	B := int(s.model.GetDepth())
+	G := int(req.BatchSize)
 
 	stats := efnlp.Statistics{}
 	for i = 0; i < req.Samples; i++ {
 		start := time.Now()
-		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
+		seq, err := s.model.Generate(G, B, p) // []TokenType
 		if err != nil {
 			log.Printf("Error: %v", err)
 			err := status.Error(
@@ -195,13 +196,14 @@ func (s EFNLPService) GenerateStream(
 		return err
 	}
 
-	blockSize := s.model.GetDepth()
+	B := int(s.model.GetDepth())
+	G := int(req.BatchSize)
 
 	for i := uint32(0); i < req.MaxBatches; i++ {
 
 		stats := efnlp.Statistics{}
 		start := time.Now()
-		seq, err := s.model.Generate(req.BatchSize, blockSize, p) // []TokenType
+		seq, err := s.model.Generate(G, B, p) // []TokenType
 		if err != nil {
 			log.Printf("Error: %v", err)
 			err := status.Error(
@@ -210,7 +212,7 @@ func (s EFNLPService) GenerateStream(
 			)
 			return err
 		}
-		fp := MaxInt(len(p), int(blockSize))
+		fp := MaxInt(len(p), B)
 		gen, err := s.language.Decode(seq[fp:]) // string
 		if err != nil {
 
@@ -226,7 +228,7 @@ func (s EFNLPService) GenerateStream(
 			log.Printf("send error %v", err)
 		}
 
-		p = seq[len(seq)-int(blockSize) : len(seq)]
+		p = seq[len(seq)-B : len(seq)]
 
 	}
 

@@ -18,3 +18,6 @@ efnlp++
 *.json*
 
 sample-results.txt
+
+# for now 
+src

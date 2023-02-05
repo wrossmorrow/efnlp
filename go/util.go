@@ -3,12 +3,16 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+
+	storage "cloud.google.com/go/storage"
 
 	aws "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -36,21 +40,21 @@ func hashUTF8(str []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
-type S3StyleUrl struct {
+type CloudStyleUrl struct {
 	Bucket   string
 	Prefix   string
 	Filename string
 	Key      string
 }
 
-func DecodeS3Url(url string) (*S3StyleUrl, error) {
+func DecodeS3Url(url string) (*CloudStyleUrl, error) {
 
 	// this is janky, but may be much faster than regexps
 	// (albeit at the risk of being more buggy)
 
 	// assert strings.StartsWith(url, "[sS]3://")?
 
-	U := S3StyleUrl{}
+	U := CloudStyleUrl{}
 
 	j := 5
 	k := len(url) - 1
@@ -85,8 +89,53 @@ func DecodeS3Url(url string) (*S3StyleUrl, error) {
 
 }
 
+func DecodeGSUrl(url string) (*CloudStyleUrl, error) {
+
+	// this is janky, but may be much faster than regexps
+	// (albeit at the risk of being more buggy)
+
+	// assert strings.StartsWith(url, "gs://")?
+
+	U := CloudStyleUrl{}
+
+	j := 5
+	k := len(url) - 1
+
+	// find first part, gs://([^/]+)/... (bucket)
+	for j < len(url) {
+		if url[j] == '/' {
+			break
+		}
+		j++
+	} // url[j] == '/'
+
+	// find the last part, .../([^/]+) searching backwards
+	// ignoring a _single_ trailing slash at the end
+	if url[k] == '/' {
+		k--
+	}
+	for k > j {
+		if url[k] == '/' {
+			break
+		}
+		k--
+	} // url
+
+	U.Bucket = url[5:j]    // the bucket part
+	U.Filename = url[k+1:] // the filename part
+	if j < k {             // there is an intermediate filepath
+		U.Prefix = url[j+1 : k] // exclude leading/trailing '/'
+		U.Key = U.Prefix + "/" + U.Filename
+	} else {
+		U.Key = U.Filename
+	}
+
+	return &U, nil
+
+}
+
 func DownloadS3File(
-	s3url *S3StyleUrl,
+	s3url *CloudStyleUrl,
 	localFilename string,
 	awsconf *aws.Config,
 ) (string, error) {
@@ -124,6 +173,49 @@ func DownloadS3File(
 		},
 	)
 	if err != nil {
+		return "", err
+	}
+
+	return filename, nil
+
+}
+
+func DownloadGSFile(
+	gsurl *CloudStyleUrl,
+	localFilename string,
+	// awsconf *aws.Config,
+) (string, error) {
+
+	var filename string
+	if len(localFilename) > 0 {
+		filename = localFilename
+	} else {
+		filename = gsurl.Filename
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	// Initialize a session in us-west-2 that the SDK will use to load
+	// credentials from the shared credentials file ~/.aws/credentials.
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	bucket := client.Bucket(gsurl.Bucket)
+	object := bucket.Object(gsurl.Key)
+	reader, err := object.NewReader(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	if _, err := io.Copy(file, reader); err != nil {
 		return "", err
 	}
 

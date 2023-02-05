@@ -8,5 +8,7 @@ __pycache__
 venv
 .mypy_cache
 .pytest_cache
+*.ipynb
 
 wordcount
+*.xz

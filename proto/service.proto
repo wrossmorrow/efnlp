@@ -125,15 +125,16 @@ message Prompt {
 	oneof value {
 		option (validate.required) = true;
 
-		string text = 1 [ // text (utf-8) string (validate with min/max bytes instead?)
+	  TokenString tokens = 1; // raw tokens (sent, say, by another server)
+
+		string text = 2 [ // text (utf-8) string (validate with min/max bytes instead?)
 	  	(validate.rules).string = {min_len: 1, max_len: 1048}
 	  ];
 
-		bytes utf8 = 2 [ // explicit utf-8 byte string (expect unused?)
+		bytes utf8 = 3 [ // explicit utf-8 byte string (expect unused?)
 	  	(validate.rules).bytes = {min_len: 1, max_len: 4192}
 	  ];
 
-	  TokenString tokens = 3; // raw tokens (sent, say, by another server)
 	}
 }
 

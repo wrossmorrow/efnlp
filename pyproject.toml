@@ -4,7 +4,7 @@ target-version = ['py39']
 
 [tool.poetry]
 name = "efnlp"
-version = "0.1.0"
+version = "0.1.14"
 description = "Empirical Frequency Natural Language Processing"
 readme = "README.md"
 packages = [{ include = "efnlp" }]
@@ -17,13 +17,17 @@ default = true
 
 [tool.poetry.dependencies]
 python  = "^3.9"
+protobuf = "^3.19"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
 black = "^22.6.0"
 flake8 = "^4.0.1"
-
 mypy = "^0.971"
+types-protobuf = "^4.21.0"
+
+tiktoken = "^0.2.0"
+"google.cloud" = "^0.34.0"
 # TODO: this is a very loose setting, would be better to target
 [tool.mypy]
 ignore_missing_imports = true

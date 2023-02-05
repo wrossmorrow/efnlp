@@ -1,0 +1,2 @@
+TokenType = int
+ValueType = str
