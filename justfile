@@ -2,8 +2,8 @@ default:
     just --list
 
 name := "efnlp"
-current_version := "v0.1.14"
-current_tag := "draft-v0.1.14"
+current_version := "v0.2.2"
+current_tag := "rust-v0.2.2"
 
 alias i := install
 alias u := update
@@ -22,13 +22,18 @@ install:
 update: 
     poetry update
 
+# poetry python
+python:
+    poetry run python
+
+# maturin rust python env
+maturin *CMDS:
+    poetry run maturin {{CMDS}}
+
 # protobuf generated code
-codegen tag=current_tag:
-    docker run --entrypoint /usr/bin/protoc \
-        -v ${PWD}/proto:/efnlp/proto \
-        -v ${PWD}/efnlp:/efnlp/local \
-        us-central1-docker.pkg.dev/efnlp-naivegpt/dataflow/python:{{tag}} \
-        -I/efnlp/proto --python_out=/efnlp/local /efnlp/proto/efnlp.proto
+codegen:
+    protoc -I=proto --python_out=./efnlp proto/efnlp.proto 
+    protoc -I=proto --prost_out=./src proto/efnlp.proto
 
 # format the code
 format: 
@@ -44,6 +49,10 @@ lint:
     poetry run black {{name}} test --check
     poetry run flake8 {{name}} test --exclude efnlp/efnlp_pb2.py
     poetry run mypy {{name}} test
+
+# run all rust code tests
+rust-test *FLAGS:
+    cargo test --no-default-features {{FLAGS}}
 
 # run all unit tests
 unit-test *FLAGS:

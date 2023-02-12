@@ -1,3 +1,5 @@
+import _efnlp
+
 from .encoder import SuffixEncoder  # noqa: F401
 
 # from .encoder import SuffixEncoderSet  # noqa: F401

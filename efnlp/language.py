@@ -146,8 +146,6 @@ class Language:
         if self.depth == 1:
             return self._encode_flat(s, ignore_errors=ignore_errors)
 
-        print("using deep search")
-
         # If we do have to use multi-character suffixes, we have to use an expensive
         # backwards search. (Well, expensive as written and in python. This is fast
         # in go, for example.)

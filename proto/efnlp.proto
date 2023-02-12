@@ -69,11 +69,14 @@ message SamplerTokenCount {
 
 message SuffixTree {
 	uint32 token = 1;
-	Sampler sampler = 2;
-	repeated SuffixTree prefixes = 3;
+	uint32 depth = 2;
+	Sampler sampler = 3;
+	repeated SuffixTree prefixes = 4;
 }
 
 message SuffixTreeSet {
-	// size, depth?
-	repeated SuffixTree prefixes = 1;
+	uint32 size = 1;
+	uint32 depth = 2;
+	Sampler sampler = 3;
+	repeated SuffixTree prefixes = 4;
 }

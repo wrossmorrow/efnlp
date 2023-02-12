@@ -2,9 +2,12 @@
 *
 
 # Allow files and folders with a pattern starting with !
+!beam/shims/*.py
 !proto/*.proto
 !efnlp/*.py
-!cpp/CMakeLists.txt 
-!cpp/*.hpp 
-!cpp/*.cpp
-!beam/shims/*.py
+!src
+!Cargo.toml
+!pyproject.toml
+!poetry.lock
+!README.md
+!LICENSE
