@@ -8,6 +8,10 @@ use std::cmp;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 
+// TODO: enable optional compression in serialization (and decomp in deserialization)
+// use flate2::write::GzEncoder;
+// use flate2::Compression;
+
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
@@ -33,7 +37,16 @@ use efnlp_pb::pb;
 pub type TokenType = u16;
 pub type ProtoBytes = Vec<u8>;
 
-// Simple character based language; naive, but maybe super fast
+///
+/// This is a simple implementation of a (UTF-8) character language
+/// that may be simpler (and faster) than using other tokenizers.
+/// Character only encodings are probably a bad idea, but in the
+/// domain of "research" it may be useful to understand how much
+/// "leverage" the tokenization strategy alone is supplying. This
+/// sort of comparison can probably be done by comparing with the
+/// naive character encoding.
+///
+/// TODO: still incomplete
 
 #[derive(Serialize, Deserialize)]
 pub struct CharLanguage {
@@ -112,7 +125,11 @@ impl CharLanguage {
     }
 }
 
-// Simple uniform sampler based on counts and totals
+///
+/// A simple uniform distribution sampler based on counts and totals.
+///
+/// Protobuf serialization is preferred.
+///
 
 #[derive(Serialize, Deserialize)]
 pub struct Sampler {
@@ -155,10 +172,18 @@ impl Sampler {
     }
 
     // serialize to protobuf bytes
+    //
+    // TODO: enable optional compression
     pub fn serialize(&self) -> Result<ProtoBytes, prost::EncodeError> {
         let P = self.proto();
-        let mut buf = vec![];
-        P.encode(&mut buf)?; // insufficient capacity
+        let mut buf = vec![]; // is this sizable?
+        P.encode(&mut buf)?; // insufficient buffer capacity error only
+                             // if compress {
+                             //     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+                             //     encoder.write_all(buf);
+                             //     let mut ret_buf = vec![];
+                             //     return
+                             // }
         return Ok(buf);
     }
 
@@ -173,6 +198,9 @@ impl Sampler {
         return Ok(serde_json::to_string(self)?);
     }
 
+    // approximate memory used by this sampler (one double,
+    // plus a token and count for each element in the "support"
+    // of this sampler's distribution).
     pub fn memory(&self) -> usize {
         return 8 + 4 * self.counts.len();
     }
@@ -186,35 +214,85 @@ impl Sampler {
         };
     }
 
-    pub fn merge(&mut self, other: &Sampler) {
-        // compute updates
-        let mut updates = HashMap::<TokenType, u32>::new();
-        for (t, c) in &(self.counts) {
-            if other.counts.contains_key(t) {
-                let d = other.counts[t];
-                updates.insert(*t, *c + d);
-            }
+    // add an observed element and it's count to this sampler
+    pub fn add_count(&mut self, t: TokenType, c: u32) {
+        self.total += c as f64;
+        let mut cc: u32 = 0;
+        if self.counts.contains_key(&t) {
+            cc = self.counts[&t];
         }
+        self.counts.insert(t, cc + c);
+    }
 
-        for (t, c) in &(other.counts) {
-            if !self.counts.contains_key(t) {
-                updates.insert(*t, *c);
+    // remove an observed element and it's count to this sampler; this could
+    // in principle make a sampler invalid. We should implement a check that
+    // removal is in fact valid.
+    pub fn remove_count(&mut self, t: &TokenType, c: u32) {
+        let cf = c as f64;
+        // if self.total < cf {
+        //     return Err(
+        //         "removing count would make sampler invalid".to_string()
+        //     );
+        // }
+        match self.counts.get(t) {
+            Some(&cc) => {
+                if cc >= c {
+                    self.counts.insert(*t, cc - c);
+                    self.total -= cf;
+                }
+                // TODO: what if cc < c? total < 0?
+                // else {
+                //     return Err(
+                //         "removing count would make sampler invalid".to_string()
+                //     );
+                // }
             }
-        }
-
-        self.total += other.total; // add together totals
-
-        // insert updates
-        for (t, c) in updates {
-            self.counts.insert(t, c);
+            _ => (),
         }
     }
 
-    // sample from the distribution described by this sampler
+    pub fn verify(&self) -> bool {
+        let total = self.counts.iter().map(|(_, c)| *c).sum::<u32>() as f64;
+        return total == self.total;
+    }
+
+    pub fn clean(&mut self) {
+        self.counts.retain(|_, c| *c > 0);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.total == 0.0
+    }
+
+    // merge another sampler into this one (non-destructive)
+    pub fn merge(&mut self, other: &Sampler) {
+        for (&t, &c) in &(other.counts) {
+            self.add_count(t, c);
+        }
+    }
+
+    // remove all elements from another sampler; this could
+    // in principle make a sampler invalid, but that condition
+    // _could_ be dispatched to remove_count if we except that
+    // the current sampler might be left in an inconsistent
+    // state upon an error. We might be able to recover if we
+    // track entries successfully removed up until failure.
+    pub fn reduce(&mut self, other: &Sampler) {
+        for (t, &c) in &(other.counts) {
+            self.remove_count(t, c);
+        }
+    }
+
+    // Sample from the distribution described by this sampler.
+    // The implementation is a naive bin sampler.
     pub fn sample(&self) -> Result<TokenType, String> {
+        if self.total <= 0.0 {
+            return Err("sampler is empty; perhaps tree is sparse (call .densify())".to_string());
+        }
+        let mut fc: f64;
         let mut r: f64 = rand::thread_rng().gen_range(0.0..self.total);
-        for (&t, &c) in self.counts.iter() {
-            let fc = c as f64;
+        for (&t, &c) in &(self.counts) {
+            fc = c as f64; // TODO: just store floats in memory?
             if r < fc {
                 return Ok(t);
             }
@@ -227,13 +305,31 @@ impl Sampler {
     pub fn probability(&self, t: TokenType) -> f64 {
         match self.counts.get(&t) {
             Some(&c) => {
-                let fc = c as f64;
-                return fc / self.total;
+                return (c as f64) / self.total;
             }
             _ => return 0.0,
         };
     }
+
+    // we may want to "sample" using modal (or median?) values
+    // pub fn mode(&self) -> TokenType {
+    //     // determine/cache what the modal token is?
+    //     return self.modal_token;
+    // }
 }
+
+///
+/// A basic suffix tree like sampler data structure. We store (un-
+/// compressed) suffixes that can be recursively searched, with
+/// samplers either at every level ("dense") or just at leaves
+/// ("sparse"). The difference could be very relevant for serialization
+/// because a "sparse" structure can have half the size of a "dense"
+/// structure, a "dense" structure is only needed for efficient
+/// sampling, and it is easy to "densify" by accumulating up from
+/// leaves.
+///
+/// Protobuf serialization is preferred.
+///
 
 #[derive(Serialize, Deserialize)]
 pub struct SuffixTree {
@@ -303,31 +399,39 @@ impl SuffixTree {
         return Ok(serde_json::to_string(self)?);
     }
 
-    // return a memory estimate
+    // return a memory estimate: basically recursive size plus
     pub fn memory(&self) -> usize {
-        let mut m: usize = 0;
-        for (_, tree) in &self.prefixes {
-            m += 2 + tree.memory();
-        }
+        let m: usize = self
+            .prefixes
+            .iter()
+            .map(|(_, tree)| (2 as usize + tree.memory()))
+            .sum::<usize>();
         return 4 + self.sampler.memory() + m;
     }
 
-    pub fn parse(&mut self, p: &[TokenType], t: TokenType) -> u16 {
-        self.sampler.add(t);
+    // Parse a prefix p, assigning an occurrence of a token t
+    // in it's sampler. Recursively traverse sub-suffixes,
+    // creating new nodes as needed. If "dense" is true,
+    // define the sampler for any nodes, o/w just for leaves.
+    pub fn parse(&mut self, p: &[TokenType], t: TokenType, dense: bool) -> u16 {
         if p.len() == 0 {
+            self.sampler.add(t);
             return self.depth;
+        }
+        if dense {
+            self.sampler.add(t);
         }
         let r = p.len() - 1;
         let l = p[r];
         let d: u16;
         match self.prefixes.get_mut(&l) {
-            Some(u) => {
-                d = u.parse(&p[0..r], t);
+            Some(tree) => {
+                d = tree.parse(&p[0..r], t, dense);
             }
             _ => {
-                let mut n = SuffixTree::new(l);
-                d = n.parse(&p[0..r], t);
-                self.prefixes.insert(l, n);
+                let mut tree = SuffixTree::new(l);
+                d = tree.parse(&p[0..r], t, dense);
+                self.prefixes.insert(l, tree);
             }
         }
         if d + 1 > self.depth {
@@ -336,16 +440,48 @@ impl SuffixTree {
         return self.depth;
     }
 
-    pub fn merge(&mut self, other: &mut SuffixTree) {
-        // NOTE: destructive to "other"
+    // recursively "rehydrate" samplers at every level
+    pub fn densify(&mut self) {
+        if self.prefixes.len() > 0 {
+            for (_, tree) in &mut (self.prefixes) {
+                tree.densify(); // recurse first (DFS)
+                for (&t, &c) in &(tree.sampler.counts) {
+                    self.sampler.add_count(t, c);
+                }
+            }
+        }
+    }
 
-        // assert self.token == other.token?
+    // remove any sampler observations related to prefixes in
+    // any nodes with prefixes, and clean the samplers. this
+    // can save a significant amount of space.
+    pub fn sparsify(&mut self) {
+        if self.prefixes.len() > 0 {
+            for (_, tree) in &mut (self.prefixes) {
+                for (t, &c) in &(tree.sampler.counts) {
+                    self.sampler.remove_count(t, c);
+                }
+                tree.sparsify();
+            }
+            self.sampler.clean();
+            // self.sampler = Sampler::new(); // enough?
+        }
+    }
+
+    // merge two trees, DESTRUCTIVE to other. We could alternatively
+    // clone other, but that increases memory. perhaps two methods,
+    // but the broad idea (usage in a CombinePerKey like paradigm)
+    // should admit destructive merges.
+    pub fn merge(&mut self, other: &mut SuffixTree) {
+        // assert!(self.token == other.token)
 
         if self.depth < other.depth {
             self.depth = other.depth;
         }
 
-        self.sampler.merge(&other.sampler);
+        if !self.sampler.is_empty() || !other.sampler.is_empty() {
+            self.sampler.merge(&other.sampler);
+        }
 
         // merge all prefixes
 
@@ -386,26 +522,44 @@ impl SuffixTree {
         }
     }
 
+    // Attempt to match a specific prefix.
     pub fn matches(&self, p: &[TokenType]) -> bool {
         if p.len() == 0 {
             return false;
         }
-        let r = p.len() - 1;
+        let r = p.len() - 1; // r == 0 <==> p.len() == 1
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(t) => {
-                // &SuffixTree
+            Some(tree) => {
                 if r == 0 {
-                    // p.len()-1 == 0 <==> p.len() == 1
                     return true;
                 }
-                return t.matches(&p[0..r]);
+                return tree.matches(&p[0..r]);
             }
             _ => return false,
         }
     }
 
+    // Return the length of the longest match
+    pub fn match_length(&self, p: &[TokenType]) -> u32 {
+        if p.len() == 0 {
+            return 0;
+        }
+        let r = p.len() - 1; // r == 0 <==> p.len() == 1
+        let l = p[r];
+        match self.prefixes.get(&l) {
+            Some(tree) => {
+                if r == 0 {
+                    return 1;
+                }
+                return tree.match_length(&p[0..r]) + 1;
+            }
+            _ => return 0,
+        }
+    }
+
     // need error type response because technically sampler may error
+    // we could ignore this if we can verify well-formedness of samplers
     pub fn sample(&self, p: &[TokenType]) -> Result<TokenType, String> {
         if p.len() == 0 {
             return Ok(self.sampler.sample()?);
@@ -413,11 +567,13 @@ impl SuffixTree {
         let r = p.len() - 1;
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(t) => return t.sample(&p[0..r]),
+            Some(tree) => return tree.sample(&p[0..r]),
             _ => return Ok(self.sampler.sample()?),
         }
     }
 
+    // return the probability of a particular token (t) occurrence
+    // after the specified prefix (p)
     pub fn probability(&self, p: &[TokenType], t: TokenType) -> f64 {
         if p.len() == 0 {
             return self.sampler.probability(t);
@@ -425,7 +581,7 @@ impl SuffixTree {
         let r = p.len() - 1;
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(u) => return u.probability(&p[0..r], t),
+            Some(tree) => return tree.probability(&p[0..r], t),
             _ => self.sampler.probability(t),
         }
     }
@@ -508,23 +664,25 @@ impl SuffixTreeSet {
         return m;
     }
 
-    pub fn parse(&mut self, p: &[TokenType], t: TokenType) {
+    pub fn parse(&mut self, p: &[TokenType], t: TokenType, dense: bool) {
         if p.len() == 0 {
             return; // no action, avoid complexities from returning errors
         }
-        self.sampler.add(t);
+        if dense {
+            self.sampler.add(t);
+        }
         let r = p.len() - 1;
         let l = p[r];
         let d: u16;
         match self.prefixes.get_mut(&l) {
             Some(tree) => {
                 // &SuffixTree
-                d = tree.parse(&p[0..r], t);
+                d = tree.parse(&p[0..r], t, dense);
             }
             _ => {
-                let mut n = SuffixTree::new(l);
-                d = n.parse(&p[0..r], t);
-                self.prefixes.insert(l, n);
+                let mut tree = SuffixTree::new(l);
+                d = tree.parse(&p[0..r], t, dense);
+                self.prefixes.insert(l, tree);
             }
         }
         if d + 1 > self.depth {
@@ -532,15 +690,38 @@ impl SuffixTreeSet {
         }
     }
 
-    pub fn parse_all(&mut self, s: &[TokenType], b: usize) {
-        // use two loops to avoid a conditional in each iter
-        // TODO: can error out if s.len() < b
+    pub fn parse_all(&mut self, s: &[TokenType], b: usize, dense: bool) {
+        // can o/w error out if s.len() < b
+        if s.len() < b {
+            for i in 1..s.len() {
+                self.parse(&s[0..i], s[i], dense);
+            }
+            return;
+        }
+
+        // use two loops to avoid a conditional in each iteration
         for i in 1..b {
-            self.parse(&s[0..i], s[i]);
+            self.parse(&s[0..i], s[i], dense);
         }
         for i in b..s.len() - 1 {
-            self.parse(&s[i - b..i], s[i]);
+            self.parse(&s[i - b..i], s[i], dense);
         }
+    }
+
+    fn densify(&mut self) {
+        for (_, tree) in &mut (self.prefixes) {
+            tree.densify();
+            for (&t, &c) in &(tree.sampler.counts) {
+                self.sampler.add_count(t, c);
+            }
+        }
+    }
+
+    fn sparsify(&mut self) {
+        for (_, tree) in &mut (self.prefixes) {
+            tree.sparsify();
+        }
+        self.sampler = Sampler::new(); // Correct?
     }
 
     pub fn merge(&mut self, other: &mut SuffixTreeSet) {
@@ -594,21 +775,39 @@ impl SuffixTreeSet {
         if p.len() == 0 {
             return false;
         }
-        let r = p.len() - 1;
+        let r = p.len() - 1; // r == 0 <==> p.len() == 1
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(t) => {
-                // &SuffixTree
+            Some(tree) => {
                 if r == 0 {
-                    // p.len()-1 == 0 <==> p.len() == 1
                     return true;
                 }
-                return t.matches(&p[0..r]);
+                return tree.matches(&p[0..r]);
             }
             _ => return false,
         };
     }
 
+    pub fn match_length(&self, p: &[TokenType]) -> u32 {
+        if p.len() == 0 {
+            return 0;
+        }
+        let r = p.len() - 1;
+        let l = p[r];
+        match self.prefixes.get(&l) {
+            Some(tree) => {
+                return tree.match_length(&p[0..r]) + 1;
+            }
+            _ => return 0,
+        };
+    }
+
+    // need error type response because technically sampler may error
+    // we could ignore this if we can verify well-formedness of samplers
+    //
+    // TODO: Should we, optionally or otherwise, be stricter about prefixes
+    // with unknown tokens? That is, not fall back to just sampling random
+    // tokens based on a "uni-gram" model.
     pub fn sample(&self, p: &[TokenType]) -> Result<TokenType, String> {
         if p.len() == 0 {
             return Err("Sampling requires a (nontrivial) prefix".to_string());
@@ -616,11 +815,12 @@ impl SuffixTreeSet {
         let r = p.len() - 1;
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(t) => return Ok(t.sample(&p[0..r])?),
-            _ => return Err("Unknown token in prefix".to_string()),
+            Some(tree) => return Ok(tree.sample(&p[0..r])?),
+            _ => return self.sampler.sample(), // sample from raw token marginals
         }
     }
 
+    // return the probability `t` follows `p`
     pub fn probability(&self, p: &[TokenType], t: TokenType) -> f64 {
         if p.len() == 0 {
             return self.sampler.probability(t);
@@ -628,8 +828,8 @@ impl SuffixTreeSet {
         let r = p.len() - 1;
         let l = p[r];
         match self.prefixes.get(&l) {
-            Some(u) => return u.probability(&p[0..r], t),
-            _ => self.sampler.probability(t),
+            Some(tree) => return tree.probability(&p[0..r], t),
+            _ => self.sampler.probability(t), // raw `t` occurrences
         }
     }
 
@@ -684,9 +884,9 @@ impl PySuffixTree {
 
     #[new]
     fn new(t: TokenType) -> PyResult<PySuffixTree> {
-        return Ok(PySuffixTree {
+        Ok(PySuffixTree {
             wrapped: SuffixTree::new(t),
-        });
+        })
     }
 
     #[staticmethod]
@@ -694,21 +894,21 @@ impl PySuffixTree {
         let bytes = b.as_bytes().to_vec(); // TODO: copying? Could just accept slices
         match SuffixTree::deserialize(&bytes) {
             Ok(m) => return Ok(PySuffixTree { wrapped: m }),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn serialize(&self, py: Python) -> PyResult<PyObject> {
         match self.wrapped.serialize() {
             Ok(b) => return Ok(PyBytes::new(py, &b).into()),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn json(&self) -> PyResult<String> {
         match self.wrapped.json() {
             Ok(s) => Ok(s),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
@@ -721,39 +921,48 @@ impl PySuffixTree {
     }
 
     fn memory(&self) -> PyResult<usize> {
-        return Ok(self.wrapped.memory());
+        Ok(self.wrapped.memory())
     }
 
-    fn parse(&mut self, p: Vec<TokenType>, t: TokenType) -> PyResult<()> {
+    fn parse(&mut self, p: Vec<TokenType>, t: TokenType, dense: bool) -> PyResult<()> {
         if p.len() == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "Cannot parse empty input".to_string(),
             ));
         }
-        self.wrapped.parse(&p, t);
+        self.wrapped.parse(&p, t, dense);
         Ok(())
     }
 
-    fn merge(&mut self, other: &mut PySuffixTree) {
-        self.wrapped.merge(&mut other.wrapped);
+    fn densify(&mut self) -> PyResult<()> {
+        Ok(self.wrapped.densify())
+    }
+
+    fn sparsify(&mut self) -> PyResult<()> {
+        Ok(self.wrapped.sparsify())
+    }
+
+    fn merge(&mut self, other: &mut PySuffixTree) -> PyResult<()> {
+        Ok(self.wrapped.merge(&mut other.wrapped))
     }
 
     fn matches(&self, p: Vec<TokenType>) -> PyResult<bool> {
-        if self.wrapped.matches(&p) {
-            return Ok(true);
-        }
-        return Ok(false);
+        Ok(self.wrapped.matches(&p))
+    }
+
+    fn match_length(&self, p: Vec<TokenType>) -> PyResult<u32> {
+        Ok(self.wrapped.match_length(&p))
     }
 
     fn sample(&self, p: Vec<TokenType>) -> PyResult<TokenType> {
         match self.wrapped.sample(&p) {
             Ok(s) => Ok(s),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn probability(&self, p: Vec<TokenType>, t: TokenType) -> PyResult<f64> {
-        return Ok(self.wrapped.probability(&p, t));
+        Ok(self.wrapped.probability(&p, t))
     }
 }
 
@@ -778,21 +987,21 @@ impl EFNLP {
         let bytes = b.as_bytes().to_vec(); // TODO: copying? Could just accept slices
         match SuffixTreeSet::deserialize(&bytes) {
             Ok(m) => return Ok(EFNLP { wrapped: m }),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn serialize(&self, py: Python) -> PyResult<PyObject> {
         match self.wrapped.serialize() {
             Ok(b) => return Ok(PyBytes::new(py, &b).into()),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn json(&self) -> PyResult<String> {
         match self.wrapped.json() {
             Ok(s) => Ok(s),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
@@ -805,27 +1014,37 @@ impl EFNLP {
     }
 
     fn memory(&self) -> PyResult<usize> {
-        return Ok(self.wrapped.memory());
+        Ok(self.wrapped.memory())
     }
 
-    fn parse(&mut self, p: Vec<TokenType>, t: TokenType) -> PyResult<()> {
-        // TODO: return Python exception when p.len() == 0?
+    fn parse(&mut self, p: Vec<TokenType>, t: TokenType, dense: bool) -> PyResult<()> {
         if p.len() == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "Cannot parse empty input".to_string(),
             ));
         }
-        self.wrapped.parse(&p, t);
-        Ok(())
+        Ok(self.wrapped.parse(&p, t, dense))
     }
 
-    fn parse_all(&mut self, p: Vec<TokenType>, b: usize) {
-        // TODO: return Python exception when p.len() == 0?
-        self.wrapped.parse_all(&p, b);
+    fn parse_all(&mut self, p: Vec<TokenType>, b: usize, dense: bool) -> PyResult<()> {
+        if p.len() <= b {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "Sequence length too small for block size".to_string(),
+            ));
+        }
+        Ok(self.wrapped.parse_all(&p, b, dense))
     }
 
-    fn merge(&mut self, other: &mut EFNLP) {
-        self.wrapped.merge(&mut other.wrapped);
+    fn densify(&mut self) -> PyResult<()> {
+        Ok(self.wrapped.densify())
+    }
+
+    fn sparsify(&mut self) -> PyResult<()> {
+        Ok(self.wrapped.sparsify())
+    }
+
+    fn merge(&mut self, other: &mut EFNLP) -> PyResult<()> {
+        Ok(self.wrapped.merge(&mut other.wrapped))
     }
 
     // Iterator over trees? That would be convenient...
@@ -843,21 +1062,22 @@ impl EFNLP {
     }
 
     fn matches(&self, p: Vec<TokenType>) -> PyResult<bool> {
-        if self.wrapped.matches(&p) {
-            return Ok(true);
-        }
-        return Ok(false);
+        Ok(self.wrapped.matches(&p))
+    }
+
+    fn match_length(&self, p: Vec<TokenType>) -> PyResult<u32> {
+        Ok(self.wrapped.match_length(&p))
     }
 
     fn sample(&self, p: Vec<TokenType>) -> PyResult<TokenType> {
         match self.wrapped.sample(&p) {
             Ok(s) => Ok(s),
-            Err(e) => Err(PyErr::new::<exceptions::PyKeyError, _>(e.to_string())),
+            Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.to_string())),
         }
     }
 
     fn probability(&self, p: Vec<TokenType>, t: TokenType) -> PyResult<f64> {
-        return Ok(self.wrapped.probability(&p, t));
+        Ok(self.wrapped.probability(&p, t))
     }
 
     fn generate(
@@ -1096,24 +1316,24 @@ mod tests {
     #[test]
     fn test_parser() {
         let tok_size: TokenType = 3;
-        let num_tokens = 100;
-        let block_size = 3;
+        let num_tokens = 1000;
+        let block_size = 10;
 
         let mut m = SuffixTreeSet::new();
 
-        match m.json() {
-            Ok(j) => println!("JSON: {}", j),
-            Err(e) => println!("Error: {}", e),
-        }
+        // match m.json() {
+        //     Ok(j) => println!("JSON: {}", j),
+        //     Err(e) => println!("Error: {}", e),
+        // }
 
         let s = create_arbitrary_token_sequence(tok_size, num_tokens);
 
-        m.parse_all(&s, block_size);
+        m.parse_all(&s, block_size, true);
 
-        match m.json() {
-            Ok(j) => println!("JSON: {}", j),
-            Err(e) => println!("Error: {}", e),
-        }
+        // match m.json() {
+        //     Ok(j) => println!("JSON: {}", j),
+        //     Err(e) => println!("Error: {}", e),
+        // }
 
         // assert every subsequence in the sequence is in the SuffixTreeSet
         for i in 1..block_size {
@@ -1137,19 +1357,37 @@ mod tests {
         assert_suffix_tree_sets_equal(&m, &m1);
 
         match m.serialize() {
-            Ok(b) => match SuffixTreeSet::deserialize(&b) {
-                Ok(m2) => {
-                    assert_suffix_tree_sets_equal(&m, &m2);
+            Ok(b) => {
+                println!("-- proto size in bytes: {}", b.len());
+                match SuffixTreeSet::deserialize(&b) {
+                    Ok(m2) => {
+                        assert_suffix_tree_sets_equal(&m, &m2);
+                    }
+                    Err(e) => {
+                        println!("Error in deserialize: {}", e);
+                        assert!(false);
+                    }
                 }
-                Err(e) => {
-                    println!("Error in deserialize: {}", e);
-                    assert!(false);
-                }
-            },
+            }
             Err(e) => {
                 println!("Error in serialize: {}", e);
                 assert!(false);
             }
+        }
+
+        m.sparsify();
+        match m.serialize() {
+            Ok(b) => {
+                println!("-- sparse proto size in bytes: {}", b.len());
+            }
+            _ => (),
+        }
+        m.densify();
+        match m.serialize() {
+            Ok(b) => {
+                println!("-- dense proto size in bytes: {}", b.len());
+            }
+            _ => (),
         }
     }
 
@@ -1166,8 +1404,8 @@ mod tests {
         let s1 = create_arbitrary_token_sequence(tok_size, num_tokens);
         let s2 = create_arbitrary_token_sequence(tok_size, num_tokens);
 
-        m1.parse_all(&s1, block_size);
-        m2.parse_all(&s2, block_size);
+        m1.parse_all(&s1, block_size, true);
+        m2.parse_all(&s2, block_size, true);
 
         // assert "correctness" (TODO: still one-sided)
 
@@ -1232,7 +1470,7 @@ mod tests {
 
         // pass Vec explicitly, not by ref; clone for test only
         // without cloning, we get errors from the slice "copies" below
-        m.parse_all(s.clone(), block_size);
+        m.parse_all(s.clone(), block_size, false);
 
         // just for convenience
         match m.json() {
@@ -1255,6 +1493,8 @@ mod tests {
             }
         }
 
+        m.densify();
+
         // verify we can generate
         let p: Vec<TokenType> = vec![0];
         match m.generate(100, block_size, p) {
@@ -1262,7 +1502,7 @@ mod tests {
             Err(e) => println!("Error in generate: {}", e),
         }
 
-        // let b = m.serialize(); // missing py arg
+        // let b = m.serialize(); // missing `py` arg; hot to get in testing?
         // let n = EFNLP::deserialize(b);
     }
 }

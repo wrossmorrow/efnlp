@@ -14,6 +14,7 @@ prost = { version = ">=0.11.0, <0.11.2" }
 prost-build = { version = ">=0.11.0, <0.11.2" }
 pyo3 = "0.18.0"
 protoc-gen-prost = "0.2.1"
+flate2 = "1.0.25"
 
 # { version = "0.18.0", features = ["extension-module"] }
 
