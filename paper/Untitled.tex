@@ -38,21 +38,21 @@
 
 Consider a corpus $\mathcal{C}$ of tokens from a language $\mathcal{T} = \{1,\dotsc,T\}$ (w.l.o.g.) that at the very least ``covers'' $\mathcal{T}$ in the sense that every $t \in \mathcal{T}$ appears in $\mathcal{C}$. By a corpus we basically mean, here, a giant body of text or a ``long'' sequence of elements of $\mathcal{T}$. Can we compute the empirical distribution of next tokens for some batch size $B$? Let's define what we mean clearly: we want to estimate the conditional probabilities
 \begin{equation*}
-	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_1, \dotsc , t_B \; )
+	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_B \; , \; \dotsc \; , \; t_1 \; )
 \end{equation*}
-with ``(Conditional) Empiricial Frequencies'' or (C)EFs. This is, of course, a purely Markov representation of token sequences. 
+with ``(Conditional) Empiricial Frequencies'' or (C)EFs. This is, of course, a purely Markov representation of token sequences. If $B = 1$ we have a ``bi-gram'' model. 
 
-Before detailing how, why would we do such a thing? Markov modeling of language aged out forever ago. Yet a plausible ``hypothesis'' is that these probabilities are what LLMs like GPT are fundamentally modeling. Any functional representation, such as a simple variant of multiclass logit regression or the deep networks in modern LLMs, impose structure on sequential predictions. Such structure exists to ``smooth'' or ``fill'' gaps in knowledge of some ``true'' conditional probabilities for ``small'' data volumes (relatively). As the training corpus size grows a model from a suitably ``universal'' class token sequence predictor estimated consistently will increasingly tend to the (C)EFs and effectively ``regurgitate'' patterns from its training data.\footnote{An empirical distribution (from iid samples) converges w.p.1 to the true distribution from which samples are drawn. We can't formally speak of ``consistency'' of a NN-LLM as its model and parameters are fictitious, but we can safely suppose the point is to generate a distribution with a similar target, perhaps meaning an empirical distribution of samples from the LLM has the same convergence property.} We mostly ignore the mathematics of the underlying statistical assumptions here (consistency, unbiasedness). 
+Before detailing how, why in the world would we consider such a thing? Markov modeling of language aged out forever ago. Yet LLMs like GPT-$\{1,2,3,\dotsc\}$ are structural statistical models of this type, and a plausible ``hypothesis'' is that these probabilities are what LLMs like GPT are fundamentally modeling. Any functional representation, such as a simple variant of multiclass logit regression or the deep networks in modern LLMs, impose structure on sequential predictions to (ideally) ``compress'' information in the data distribution. Such structure exists to ``smooth'' or ``fill'' gaps in knowledge of some ``true'' conditional probabilities for ``small'' data volumes (relatively). As the training corpus size grows a model from a suitably ``universal'' class token sequence predictor estimated consistently will increasingly tend to the (C)EFs and effectively ``regurgitate'' patterns from its training data.\footnote{An empirical distribution (from iid samples) converges w.p.1 to the true distribution from which samples are drawn. We can't formally speak of ``consistency'' of a NN-LLM as its model and parameters are fictitious, but we can safely suppose the point is to generate a distribution with a similar target, perhaps meaning an empirical distribution of samples from the LLM has the same convergence property.} We mostly ignore the mathematics of the underlying statistical assumptions here (consistency, unbiasedness) as they are a bit fuzzy; biased-ness is completely ill-defined without assuming an underlying model class for the data generating process, whereas consistency can only loosely be linked to distributional convergence (for a distribution we can't know). 
 
-This idea -- that the best a LLM could do is defined by the (C)EFs -- has implications for conceptualizing what LLMs are. First, should this hypothesis be correct, it is a formal, almost philosophical illustration of how it is impossible for LLMs to be generatively ``innovative''. In a strict sense they can only repeat the patterns of the past, as described by the (C)EFs in the training data. Which is not to say they are not still {\em useful}, by any means; after all, who is to say we ourselves don't just resample the past. We should still be able to reflect on the structure and limitations of such tools, as well as ourselves. Second, if model structure aims at universality, and there is enough data to faithfully represent the (C)EFs, then the structure has to {\em compress} the (C)EFs. In slightly plainer words: as we increase the volume of data used to train a LLM from a reasonably ``universal''  class, either (a) estimating the LLM parameters must be vastly simpler than computing the (C)EFs directly or (b) sampling sequences from the LLM must be vastly simpler than from the (C)EFs (or both). Something like GPT-3 is hardly ``parsimonious'' being based on over 175 {\em billion} parameters requiring O(1TB) to describe, with yet larger models also publicized, and generative sampling requiring complex distributed computing on specialized hardware. This is not to say we actually {\em have} enough data to fully describe all sayable things (far from it, probably), just to point out an inevitability of the current trend towards more and more data. 
+This idea -- that ``the best a LLM could do is defined by the (C)EFs'' -- has implications for conceptualizing what LLMs are. First, should this hypothesis be correct, it is a formal, almost philosophical illustration of how it is impossible for LLMs to be generatively ``innovative''. In a strict sense they can only repeat the patterns of the past, as described by the (C)EFs in the training data. Which is not to say they are not still {\em useful}, by any means; after all, who is to say we ourselves don't just resample the past. We should still be able to reflect on the structure and limitations of such tools, as well as ourselves. Second, if model structure aims at universality, and there is enough data to faithfully represent the (C)EFs, then the structure has to {\em compress} the (C)EFs, ideally {\em significantly}. In slightly plainer words: as we increase the volume of data used to train a LLM from a reasonably ``universal''  class, either (a) estimating the LLM parameters must be vastly simpler than computing the (C)EFs directly or (b) sampling sequences from the LLM must be vastly simpler than from the (C)EFs (or both). Something like GPT-3 is hardly ``parsimonious'' being based on over 175 {\em billion} parameters requiring O(1TB) to describe, with yet larger models also publicized, and generative sampling requiring complex distributed computing on specialized hardware. This is not to say we actually {\em have} enough data to fully describe all sayable things (far from it, probably), just to point out an inevitability of the current trend towards more and more data. 
 
-At least to me, it is not entirely clear that (C)EFs are ``efficiently'' computable (in, so to speak, ``training''), or sampling from them is efficient, or, most importantly, if samples from (C)EFs appear to mimic ``real'' language structure like LLMs do (as defined in the training corpus). Here we'll revisit history and focus on those questions. What datastructure models (C)EFs? How would we (efficiently, scalably) compute them from a (large) corpus? How would we generate sequences? Are those sequences at all representative of text in the training corpus?
+At least to me, it is not entirely clear that (C)EFs are ``efficiently'' computable (in, so to speak, ``training''), or sampling from them is efficient, or, most importantly, if samples from (C)EFs appear to mimic ``real'' language structure like LLMs do (as defined in the training corpus). Here we'll focus on those questions. What datastructure models (C)EFs? How would we (efficiently, scalably) compute them from a (large) corpus? When is that intractable? How would we generate sequences? Are those sequences at all representative of (tokenized) text in the training corpus, or hold out samples?
 
 \section{Modeling}
 
 Again we want to estimate a Markov model of token sequences via the (C)EFs
 \begin{equation*}
-	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_1, \dotsc , t_B \; )
+	\rho_B(\mathbf{t}, \tau) = \mathbb{P}(\; t_{B+1} = \tau \; | \; t_B \; , \; \dotsc \; , \; t_1 \; )
 \end{equation*}
 This is probably to be done via something like
 \begin{equation*}
@@ -152,61 +152,134 @@ One take at a NN-LLM using transformers modeling this data claims to do a decent
 
 \section{Scaling}
 
-In an $N$-token long corpus $\mathcal{C}$ there are $N-B-1$ $(B+1)$-long subsequences of prefixes and (single token) successors. A simple estimate is that this requires, at most, storing $(N-B-1)(B+1+d)$ data elements where $d$ counts data required for empirical frequencies (a counter, and/or a probability). Note this is not linear in $B \leq N-1$, and is maximized at $B_* = (N-2-d)/2$ with a maximal value of
-\begin{equation*}
-	\frac{N^2-d^2}{4} - (N+d)
-		\approx \frac{N^2}{4} - N = N\left( \frac{N}{4} - 1 \right)
-\end{equation*}
-which is, in any case, $O(N^2)$. Presumably we won't need nearly this much storage though; for $B = \eta N$, expecting $\eta$ to be small (say $10^{-5}$ for the Shakespeare), we need something akin to $O(\eta N^2)$. In any case this is an {\em overestimate} by missing two things: that only certain prefixes will exist in the corpus (or more generally the language), and for those there will be a probably-much-smaller-than $T$ set of successors. This {\em underestimates} any storage we require for capturing the marginals for matching based on less than $B$ tokens in a prefix, although in principle those can computed on demand instead of cached (with slower sampling of course). 
+At first glance suffix trees might seem like a terrible, completely unscalable approach. Particularly, if we have to account for all $L$ tokens in the language at every level of a tree, we will require storage of $O(L^B)$ to encode all $B$-length sequences. But this is not the case: we store only those prefixes and successors that actually occur in the training data; and in fact ``valid english'' is far removed from the set of all possible alphabetical character combinations. 
 
-A more ``realistic'' (minimum) storage scaling concept is $(N-B-1)(B+1+d)r(B)s(B)$ where
-\begin{equation*}
-	r(B) = \frac{\#\text{ of prefixes}}{N-B-1}
-	\quad\text{and}\quad
-	s(B) = \frac{\#\text{ of patterns}}{\#\text{ of prefixes}}
-\end{equation*}
-(leaving $N$ implicit). Broadly speaking we (probably) know some features of these ``functions'' $r$ and $s$. Specifically, $r(1) = L/N$ ($\ll 1$), $r(B) \leq 1$ (by definition), and $r(B) \uparrow 1$; in fact $r(N-2) = 1$, because $\#\text{ of prefixes} \to 1$. Also $s(B) \geq 1$ (every prefix has at least one pattern) and probably $s(B) \downarrow 1$ (as longer prefixes are considered, their successors are more likely to be unique). Note that $r(B)$ is not the fraction of {\em possible} prefixes, which would instead be $(\#\text{ of prefixes}/T^B)$ but we should probably expect that in ``natural'' language the number of {\em valid} prefixes is far, far smaller than $T^B$ (while admitting it may be much larger than $N-B-1$). Loosely speaking, if $T^B$ is at all relevant, the language would seem to be highly unstructured. 
+In an $N$-token long corpus $\mathcal{C}$ there are $N-B-1$, $(B+1)$-long subsequences of prefixes $\mathbf{t}$ and (single token) successors $\tau$. If $|\tau |$ is the size of a token, $|\mathbf{t}|$ the length of a prefix $\mathbf{t}$, and $\sigma$ is space required for a probability or count the storage required is roughly
+\begin{align*}
+	M(N, B)
+		&= \sum_{\mathbf{t} \in \mathcal{C}} \left( |\mathbf{t}| |\tau| + \sum_{\tau : (\mathbf{t}\circ\tau) \in \mathcal{C}} (\sigma + |\tau|) \right) \\
+		&= \sum_{\mathbf{t} \in \mathcal{C}} \Big( |\mathbf{t}| |\tau| + \#\{(\mathbf{t}\circ\tau) \in \mathcal{C}\} (\sigma + |\tau|) \Big) 
+\end{align*}
+(roughly because, at least, there will also be overhead to store and access this data). Supposing for simplicity all observed prefixes have length $B$ (that is, ignoring some short prefix additions in the leading tokens of a corpus or documents in it), 
+\begin{align*}
+	M(N, B) &= B |\tau| \# \{ \mathbf{t} \in \mathcal{C} \} + \sum_{\mathbf{t} \in \mathcal{C}} \#\{(\mathbf{t}\circ\tau) \in \mathcal{C}\} (\sigma + |\tau|) \\
+		&= \# \{ \mathbf{t} \in \mathcal{C} \} \left( 
+			B |\tau|  + (\sigma + |\tau|) \frac{\sum_{\mathbf{t} \in \mathcal{C}} \#\{(\mathbf{t}\circ\tau) \in \mathcal{C}\}}{\# \{ \mathbf{t} \in \mathcal{C} \}} 
+		\right)
+\end{align*}
+The second term in parenthesis has a ratio, the {\em average number of successors per prefix}; let's denote that $s(B)$. Then we have 
+\begin{align*}
+	M(N, B) &= \# \{ \mathbf{t} \in \mathcal{C} \} \Big( B |\tau|  + (\sigma + |\tau|) s(B) \Big) \\
+		&= (N-B-1) \Big( B |\tau|  + (\sigma + |\tau|) s(B) \Big) r(B) \\
+		&= |\tau| (N-B-1) \left( B + \left(\frac{\sigma}{|\tau|} + 1\right) s(B) \right) r(B) 
+\end{align*}
+where we also introduce $r(B) = \# \{ \mathbf{t} \in \mathcal{C} \}/(N-B-1)$ characterizing the {\em uniqueness} of $B$-element prefixes in the corpus. This looks a bit complicated, but is basically $O((N-B)B)$, which is plausibly large but exponential like $O(L^B)$ only if the corpus is (i.e., $N \sim L^B$). To moderate further suppose $r(B) , s(B) \approx 1$ (which we discuss more about below); then
+\begin{align*}
+	M(N, B) &\approx (N-B-1) \left( B + \frac{\sigma}{|\tau|} + 1 \right) |\tau| 
+\end{align*}
+which isn't so hard to conceptualize. These assumptions mean (i) prefixes in the corpus are unique and (ii) the successor for any prefix is unique. In a sense, were that true we've basically encoded the training data ``exactly''. 
 
-As an example, for the $1,115,393$ tokens of all of Shakespeare we have the following parsing details:
+Note though that should $r(B)$ be small this space requirement could be manageable or even {\em static}. Specifically if, say, $r(B) \sim O(1/N)$ then space could be $O(1)$ (although with a plausibly large constant). This is of course entirely wishful thinking; but we could make it explicit for the same of exposition. Suppose we have a corpus $\mathcal{C}$ and parse all $B$-prefixes, resulting in some $r(B)$ value. If we then {\em copy} and concatenate the corpus to get $\mathcal{C}_2$, and parse again, we wouldn't actually (significantly) change the number of prefixes even though we doubled $N$, and thus $r_2(B) \approx r(B)/2$. Another copy/concatenate and $r_3(B) \approx r(B)/3$, and so on. ($s(B)$ also wouldn't be (significantly) changing at all, as it is a ratio of successors to prefixes.) Then
+\begin{align*}
+	M(kN, B) 
+		&\approx |\tau| (kN-B-1) \left( B + \left(\frac{\sigma}{|\tau|} + 1\right) s(B) \right) \frac{r(B)}{k}  \\
+		&= |\tau| \left(N-\frac{B+1}{k}\right) \left( B + \left(\frac{\sigma}{|\tau|} + 1\right) s(B) \right) r(B) \\
+		&\to |\tau| N \left( B + \left(\frac{\sigma}{|\tau|} + 1\right) s(B) \right) r(B)
+\end{align*}
+which is essentially fixed while $|\mathcal{C}^k| = k N \to \infty$. {\em Obviously} we wouldn't copy the corpus and may even aim to deduplicate data from it; that's not the point. The point is that (a) while, yes, the space required {\em very well could be} a multiple of the corpus size (and is in our observations so far) (b) scaling will ultimately depend on how {\em the number of unique prefixes} (and their successors) scales with the corpus size. 
+
+Generally we know some general features of these ``functions'' $r$ and $s$. Specifically, 
+\begin{itemize}
+	\item $r(1) = L/(N-2)$ and probably $\ll 1$ (when the corpus covers the language), 
+	\item $r(B) \leq 1$ (by definition), 
+	\item and $r(B) \uparrow 1$ as $B \uparrow N-2$ with $r(N-2) = 1$. 
+\end{itemize}
+As hinted above, while we know $r(B) \uparrow 1$ the real question is more about ``how quickly''. Also 
+\begin{itemize}
+	\item $s(B) \geq 1$ (every prefix has at least one pattern) 
+	\item and probably $s(B) \downarrow 1$ (as longer prefixes are considered, their successors are more likely to be unique). 
+\end{itemize}
+To be absolutely clear, note that $r(B)$ is not the fraction of {\em possible} prefixes, which would instead be $(\#\text{ of prefixes}/L^B)$ but we should probably expect that in ``natural'' language the number of {\em valid} prefixes is far, far smaller than $L^B$ (while admitting it may be much larger than $N-B-1$ for a given corpus). Besides, if $L^B$ is at all relevant, any combination of characters in the underlying alphabet is ``valid'', and the language would seem to be highly unstructured. (But I'm no linguist.) 
+
+We can also assess the ``asymptotic'' maximum space required for a fixed $N$; where ``asymptotic'' means assuming $r(B), s(B) \approx 1$. The formula above is maximized when 
+\begin{align*}
+	0 &= - \left( B_* + \frac{\sigma}{|\tau|} + 1 \right) + (N-B_*-1) \\
+		&=  - B + \frac{\sigma}{|\tau|} + 1 + N - B_* - 1 \\ % N - B_* - 1 = B - \frac{\sigma}{|\tau|} - 1
+	B_* &= \frac{1}{2} \left( N + \frac{\sigma}{|\tau|} \right) = O(N/2)
+\end{align*}
+with 
+\begin{align*}
+	M(N, B_*) 
+		&= \left( N - \frac{1}{2} \left( N + \frac{\sigma}{|\tau|} \right) - 1 \right) \left( \frac{1}{2} \left( N + \frac{\sigma}{|\tau|} \right) + \frac{\sigma}{|\tau|} + 1 \right) |\tau| \\
+		&= \frac{1}{4} \left( N - \frac{\sigma}{|\tau|} - 2 \right) \left( N +  3\frac{\sigma}{|\tau|} + 2 \right) |\tau|
+			= O((N/2)^2). 
+\end{align*}
+although the specifics are probably immaterial. This is obviously super loose, as formally we can't eliminate $r(B), s(B)$ while optimizing over $B$. The question is really again ``how quickly'', and whether $r(B), s(B) \approx 1$ for $B \ll N/2$. Nonetheless, we should reconcile ourselves with storage requirements on the order of the corpus size (if not that half that squared). 
+
+%A simple estimate is that this requires, at most, storing $(N-B-1)(B+1+d)$ data elements where $d$ counts data required for empirical frequencies (a counter, and/or a probability). Note this is not linear in $B \leq N-1$, and is maximized at $B_* = (N-2-d)/2$ with a maximal value of
+%\begin{equation*}
+%	\frac{N^2-d^2}{4} - (N+d)
+%		\approx \frac{N^2}{4} - N = N\left( \frac{N}{4} - 1 \right)
+%\end{equation*}
+%which is, in any case, $O(N^2)$. Presumably we won't need nearly this much storage though; for $B = \eta N$, expecting $\eta$ to be small (say $10^{-5}$ for the Shakespeare), we need something akin to $O(\eta N^2)$. In any case this is an {\em overestimate} by missing two things: that only certain prefixes will exist in the corpus (or more generally the language), and for those there will be a probably-much-smaller-than $T$ set of successors. This {\em underestimates} any storage we require for capturing the marginals for matching based on less than $B$ tokens in a prefix, although in principle those can computed on demand instead of cached (with slower sampling of course). 
+
+%A more ``realistic'' (minimum) storage scaling concept is 
+%\begin{equation*}
+%	(N-B-1)(B+1+d)r(B)s(B)
+%\end{equation*}
+%where
+%\begin{equation*}
+%	r(B) = \frac{\#\text{ of prefixes}}{N-B-1}
+%	\quad\text{and}\quad
+%	s(B) = \frac{\#\text{ of patterns}}{\#\text{ of prefixes}}
+%\end{equation*}
+%(leaving $N$ implicit). $r(B)$ characterizes the ``average'' uniqueness of $B$-element prefixes in the corpus, and $s(B)$ characterizes the average uniqueness of characters following prefixes. 
+
+As an example, for the $1,115,393$ unicode character tokens of all of Shakespeare we have the following parsing details:
 \begin{center}
 \begin{small}
-\begin{tabular}{ r r c r c r r }
- $B$ & \# prefixes & $r(B)$ & \# patterns & $s(B)$ & $\tau$/prefix & memory \\ \hline
- 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & 3kB \\  
- 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & 36kB \\  
- 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & 221kB \\
- 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & 876kB \\
- 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & 2.5MB \\
- 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & 10.1MB \\
- 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & 31.9MB \\  
- 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & 50.4MB \\
- 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & 80.6MB \\  
- 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & 133MB \\  \hline
+\begin{tabular}{ r r c r c r r r }
+ $B$ & \# prefixes & $r(B)$ & \# patterns & uniqueness & $s(B)$ &bound &  memory \\ \hline
+ 1 & 65 & 0.0\% & 1,403 & 0.1\% & 21.6 & & 3kB \\  
+ 2 & 1,403 & 0.1\% & 11,556 & 1.0\% & 8.2 & & 36kB \\  
+ 3 & 11,556 & 1.0\% & 50,712 & 4.5\% & 4.4 & & 221kB \\
+ 4 & 50,712 & 4.5\% & 141,021 & 12.6\% & 2.8 & & 876kB \\
+ 5 & 141,021 & 12.6\% & 283,313 & 25.4\% & 2.0 & & 2.5MB \\
+ 7 & 447,352 & 40.1\% & 609,659 & 54.7\% & 1.4 & & 10.1MB \\
+ 10 & 858,920 & 77.0\% & 937,254 & 84.0\% & 1.1 & & 31.9MB \\  
+ 12 & 991,391 & 88.9\% & 1,027,857 & 92.2\% & 1.0 & & 50.4MB \\
+ 15 & 1,069,423 & 95.9\% & 1,081,060 & 96.9\% & 1.0 & & 80.6MB \\  
+ 20 & 1,103,358 & 98.9\% & 1,106,345 & 99.2\% & 1.0 & & 133MB \\  \hline
 \end{tabular}
 \end{small}
 \end{center}
-With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in at least $49kB$, we definitely have far fewer successors than ``random'' ($22 ~ T/3$). Still the generative output from such a sparse model is expectedly and unequivocally junk. The number of prefixes found increases but with diminishing returns; by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively), and 20-token prefixes are for all intents and purposes unique. (To be clear, by ``unique'' here we mean non-recurrent in the corpus.) The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have {\em at least one successor}, so if we have (even on average) a {\em single} successor per prefix we have probably captured all there is to capture from prefix sequences. 
+Note that here $B_* = O(500k)$, far beyond any of our values in the table above. With 1-token prefixes (bigrams) the prefixes are the language (as required by covering) and, while there are quite a few successors per ``prefix'' ($\sim$ 22) stored in about $3kB$. We already have far fewer successors than ``random'' ($22 \approx L/3 \ll L$). Still though the generative output from such a sparse model is expectedly and unequivocally junk (not shown). The number of prefixes found increases but with diminishing returns: by 10- or 12-token prefixes we already have ``mostly'' unique prefixes (77\% and 88.9\% respectively), and 20-token prefixes are for all intents and purposes unique. (To be clear, by ``unique'' here we mean non-recurrent in the corpus.) The number of successors per prefix decreases (of course): with 5-token prefixes, we already have only 2 successors per prefix (on average) and by 10-tokens successors are on the whole unique. As hinted at above this is a limit on how long our prefixes should probably be: by design every prefix will have {\em at least one successor}, so if we have (even on average) a {\em single} successor per prefix perhaps we have captured all there is to capture from prefix sequences. 
 
-Parsing and generation (sampling) times are also important, and listed in the table below for implementations in three languages. Generation of 1M samples was used to estimate the ``time/tok'' frequency (time per token) 
+Parsing and generation (sampling) times are also important, and listed in the table below for implementations in four programming languages. Generation of 1M samples was used to estimate the ``time/tok'' frequency (time per token) 
 \begin{center}
 \begin{small}
-\begin{tabular}{ r r c r c r r r r r r}
-  & \multicolumn{2}{c}{\texttt{python}} & \multicolumn{2}{c}{\texttt{go}} & \multicolumn{2}{c}{\texttt{c++} -O3} \\
- $B$ & parse & time/tok & parse & time/tok & parse & time/tok \\ \hline
- 1 & 1.0s & 1.4$\mu$s & 49ms & 0.1$\mu$s & 131ms & 0.1$\mu$s \\  
- 2 & 2.0s & 1.7$\mu$s & 109ms & 0.1$\mu$s & 248ms & 0.2$\mu$s \\  
- 3 & 3.3s & 2.1$\mu$s & 222ms & 0.2$\mu$s & 419ms & 0.3$\mu$s \\
- 4 & 4.3s & 2.6$\mu$s & 361ms & 0.3$\mu$s & 612ms & 0.4$\mu$s \\
- 5 & 6.4s & 3.2$\mu$s & 585ms & 0.5$\mu$s & 1.1s & 0.5$\mu$s \\
- 7 & 12.0s & 4.9$\mu$s & 1.2s & 0.7$\mu$s & 2.0s & 0.7$\mu$s \\
- 10 & 28.0s & 7.0$\mu$s & 2.6s & 0.9$\mu$s & 1.9s & 0.8$\mu$s \\  
- 12 & 37.3s & 8.3$\mu$s & 4.1s & 1.1$\mu$s & 2.5s & 1.0$\mu$s \\
- 15 & 54.3s & 9.7$\mu$s & 5.2s & 1.2$\mu$s & 3.2s & 1.0$\mu$s \\  
- 20 & 129.0s & 12.7$\mu$s & 8.4s & 1.6$\mu$s & 4.4s & 1.3$\mu$s \\  \hline
+\begin{tabular}{ r r r r r r r r r r r r}
+  & \multicolumn{2}{c}{\texttt{python}} 
+  	& \multicolumn{2}{c}{\texttt{rust} (\texttt{pyo3})} 
+  	& \multicolumn{2}{c}{\texttt{go}} 
+	& \multicolumn{2}{c}{\texttt{c++} -O3} \\
+ $B$ & parse & time/tok & parse & time/tok & parse & time/tok & parse & time/tok \\ \hline
+ 1 & 1.0s & 1.4$\mu$s & 110ms & 0.2$\mu$s & 49ms & 0.1$\mu$s & 131ms & 0.1$\mu$s \\  
+ 2 & 2.0s & 1.7$\mu$s & 164ms & 0.2$\mu$s & 109ms & 0.1$\mu$s & 248ms & 0.2$\mu$s \\  
+ 3 & 3.3s & 2.1$\mu$s & 260ms & 0.2$\mu$s & 222ms & 0.2$\mu$s & 419ms & 0.3$\mu$s \\
+ 4 & 4.3s & 2.6$\mu$s & 441ms & 0.3$\mu$s & 361ms & 0.3$\mu$s & 612ms & 0.4$\mu$s \\
+ 5 & 6.4s & 3.2$\mu$s & 743ms & 0.5$\mu$s & 585ms & 0.5$\mu$s & 1.1s & 0.5$\mu$s \\
+ 7 & 12.0s & 4.9$\mu$s & 1.6s & 0.9$\mu$s & 1.2s & 0.7$\mu$s & 2.0s & 0.7$\mu$s \\
+ 10 & 28.0s & 7.0$\mu$s & 3.1s & 1.5$\mu$s & 2.6s & 0.9$\mu$s & 1.9s & 0.8$\mu$s \\  
+ 12 & 37.3s & 8.3$\mu$s & 3.9s & 1.8$\mu$s & 4.1s & 1.1$\mu$s & 2.5s & 1.0$\mu$s \\
+ 15 & 54.3s & 9.7$\mu$s & 5.9s & 2.2$\mu$s & 5.2s & 1.2$\mu$s & 3.2s & 1.0$\mu$s \\  
+ 20 & 129.0s & 12.7$\mu$s & 8.5s & 2.7$\mu$s & 8.4s & 1.6$\mu$s & 4.4s & 1.3$\mu$s \\  \hline
 \end{tabular}
 \end{small}
 \end{center}
-Unsurprisingly, compiled \texttt{go} and \texttt{c++} implementations are faster. Parsing times are a fraction than in the \texttt{python} code. Sampling can be done in O($\mu$s) per token in each implementation, but still roughly an order of magnitude faster than \texttt{python} with \texttt{go} or \texttt{c++}. 
+Unsurprisingly, compiled \texttt{rust}, \texttt{go} and \texttt{c++} implementations can parse a corpus like the shakespeare orders of magnitude faster than pure \texttt{python}. Sampling can be done in O($\mu$s) per token in each implementation, though still roughly an order of magnitude faster in \texttt{rust}, \texttt{go}, or \texttt{c++} than pure \texttt{python}. Note, though, the \texttt{rust} code uses \texttt{pyo3} to supply an interface with \texttt{python} making compiled-code speed completely available in pure \texttt{python}. Basically, we can parse a 1M token corpus into a sampling tree with (in this case) unique prefixes and successors in seconds, and similarly generate 1M samples in about a second. 
+
+We've also applied this to wikipedia data (2020, from kaggle). Using GPT-2 tokens, we can parse O(6M) wikipedia articles into their own 10-token-prefix trees in about 17-18hrs of total process time (but only 2 1/2 hours of wall time using only O(10) workers in GCP's dataflow). The results use about 144GiB of space, vs 128GiB of space for the tokenized data (in \texttt{python} \texttt{int}s), for a rather small ``inflation'' factor. The monetary cost for such a job is probably under \$2 (I estimated \$1.76). This does not include merges, which are an important (and more complicated) next step. 
 
 \section{Languages}
 

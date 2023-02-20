@@ -1,10 +1,24 @@
-[tool.black]
-line-length = 99
-target-version = ['py39']
+[project]
+name = "efnlp"
+version = "0.2.3"
+description = "Empirical Frequency Natural Language Processing"
+authors = [{name = "W. Ross Morrow", email = "morrowwr@gmail.com"}]
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+# package?
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[build-system]
+requires = ["maturin>=0.13,<0.14"]
+build-backend = "maturin"
 
 [tool.poetry]
 name = "efnlp"
-version = "0.1.14"
+version = "0.2.3"
 description = "Empirical Frequency Natural Language Processing"
 readme = "README.md"
 packages = [{ include = "efnlp" }]
@@ -17,7 +31,11 @@ default = true
 
 [tool.poetry.dependencies]
 python  = "^3.9"
+maturin = "^0.14.12"
 protobuf = "^3.19"
+tiktoken = "^0.2.0"
+"google.cloud" = "^0.34.0"
+google-cloud-storage = "^2.7.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
@@ -26,12 +44,12 @@ flake8 = "^4.0.1"
 mypy = "^0.971"
 types-protobuf = "^4.21.0"
 
-tiktoken = "^0.2.0"
-"google.cloud" = "^0.34.0"
+
+[tool.black]
+line-length = 99
+target-version = ['py39']
+
+
 # TODO: this is a very loose setting, would be better to target
 [tool.mypy]
 ignore_missing_imports = true
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"

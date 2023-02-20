@@ -2,8 +2,8 @@ default:
     just --list
 
 name := "efnlp"
-current_version := "v0.1.14"
-current_tag := "draft-v0.1.14"
+current_version := "v0.2.3"
+current_tag := "rust2-v0.2.3"
 
 alias i := install
 alias u := update
@@ -22,13 +22,18 @@ install:
 update: 
     poetry update
 
+# poetry python
+python:
+    poetry run python
+
+# maturin rust python env
+maturin *CMDS:
+    poetry run maturin {{CMDS}}
+
 # protobuf generated code
-codegen tag=current_tag:
-    docker run --entrypoint /usr/bin/protoc \
-        -v ${PWD}/proto:/efnlp/proto \
-        -v ${PWD}/efnlp:/efnlp/local \
-        us-central1-docker.pkg.dev/efnlp-naivegpt/dataflow/python:{{tag}} \
-        -I/efnlp/proto --python_out=/efnlp/local /efnlp/proto/efnlp.proto
+codegen:
+    protoc -I=proto --python_out=./efnlp proto/efnlp.proto 
+    protoc -I=proto --prost_out=./src proto/efnlp.proto
 
 # format the code
 format: 
@@ -45,6 +50,10 @@ lint:
     poetry run flake8 {{name}} test --exclude efnlp/efnlp_pb2.py
     poetry run mypy {{name}} test
 
+# run all rust code tests
+rust-test *FLAGS:
+    cargo test --no-default-features {{FLAGS}}
+
 # run all unit tests
 unit-test *FLAGS:
     poetry run python -m pytest -v --disable-warnings \
@@ -57,7 +66,8 @@ run *FLAGS:
 
 # bring up compose setup
 up *FLAGS:
-    docker-compose build && docker-compose up {{FLAGS}}
+    docker-compose build -f docker/docker-compose.yaml \
+        && docker-compose up -f docker/docker-compose.yaml {{FLAGS}}
 
 docker-shell tag=current_tag:
     docker run -it --entrypoint bash \
@@ -84,7 +94,7 @@ docker-run command="" tag=current_tag:
         {{command}}
 
 dataflow-build tag=current_tag:
-    docker build . -f Dockerfile.pybeam \
+    docker build . -f docker/Dockerfile.pybeam2stage \
         -t us-central1-docker.pkg.dev/efnlp-naivegpt/dataflow/python:{{tag}}
 
 dataflow-push tag=current_tag:
@@ -97,3 +107,6 @@ build:
 # publish the package
 publish *flags:
     poetry publish {{flags}}
+
+site:
+    cd site && just serve

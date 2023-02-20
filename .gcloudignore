@@ -1,13 +1,13 @@
-# Ignore everything
-*
+# Ignore everything and allow files and folders starting with !
+/*
 
-# Allow files and folders with a pattern starting with !
-!Dockerfile.pybeam
+!docker
 !proto
-
+!src
 !efnlp
-efnlp/__pycache__
+!Cargo.lock
+!Cargo.toml
+!beam/shims/beam-io-with-lzma-filesystem.py
 
-!cpp/efnlp.hpp
-!cpp/main.cpp
-!cpp/CMakeLists.txt
+# re-ignore ...
+efnlp/__pycache__
