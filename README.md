@@ -87,6 +87,8 @@ What follows are comparative parsing/generation speeds (for sampling 1M tokens):
 
 Note (until we get better formatting) that the repeated "parse" (parse time) and "t/&tau;" (time per token) columns are for `python`, `go`, and `c++` respectively. With each we can generate text at O(&mu;s)/token. However compiled codes (`go` and `c++`) are faster (roughly by an order of magnitude) and seem to scale a bit better with longer sequences. With compiled code we can parse out the (C)EFs in shakespeare in seconds; while `python` is still "reasonable" it takes a couple minutes to parse 20-token sequences. 
 
+Note: I've tried [nanoGPT](https://github.com/karpathy/nanoGPT) with GPUs in Google CoLab Plus, as well as Lambda Labs. While I'm still playing, estimating a GPT-like model on the tiny shakespeare takes hours, and text generation something like 6-9ms per token. 
+
 ## Usage
 
 ### python
