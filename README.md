@@ -101,3 +101,11 @@ See [`cpp/*`](/cpp), with stuff that should be ready for `cmake` to run through 
 
 See [`go/*`](/go), with stuff that should be ready to build. There's a very brief [`README.md`](/go/README.md) 
 
+### rust
+
+See [`src/*`](/src), and commands in the `justfile`. E.g., 
+```
+just maturin develop [--release]
+just rust-test
+```
+etc. 
