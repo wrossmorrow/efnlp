@@ -2,8 +2,8 @@ default:
     just --list
 
 name := "efnlp"
-current_version := "v0.2.2"
-current_tag := "rust-v0.2.2"
+current_version := "v0.2.3"
+current_tag := "rust2-v0.2.3"
 
 alias i := install
 alias u := update
@@ -66,7 +66,8 @@ run *FLAGS:
 
 # bring up compose setup
 up *FLAGS:
-    docker-compose build && docker-compose up {{FLAGS}}
+    docker-compose build -f docker/docker-compose.yaml \
+        && docker-compose up -f docker/docker-compose.yaml {{FLAGS}}
 
 docker-shell tag=current_tag:
     docker run -it --entrypoint bash \
@@ -93,7 +94,7 @@ docker-run command="" tag=current_tag:
         {{command}}
 
 dataflow-build tag=current_tag:
-    docker build . -f Dockerfile.pybeam \
+    docker build . -f docker/Dockerfile.pybeam2stage \
         -t us-central1-docker.pkg.dev/efnlp-naivegpt/dataflow/python:{{tag}}
 
 dataflow-push tag=current_tag:
@@ -106,3 +107,6 @@ build:
 # publish the package
 publish *flags:
     poetry publish {{flags}}
+
+site:
+    cd site && just serve

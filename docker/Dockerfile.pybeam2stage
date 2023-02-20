@@ -1,0 +1,63 @@
+FROM apache/beam_python3.10_sdk AS base
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl cmake g++ build-essential \
+        libprotobuf-dev protobuf-compiler \
+        python3-dev python3-distutils \
+    && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3 10
+
+# END BASE  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+FROM base AS builder
+
+# install rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /efnlp
+
+RUN pip install maturin
+
+COPY src ./src
+COPY Cargo.toml Cargo.lock ./
+
+RUN maturin build --release
+
+# END BUILDER # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+FROM base AS release
+
+# DUCT TAPE - Maybe we can use LZMA compression with these changes. If 
+# it works, submit a PR to beam? (Due to openwebtext; not o/w needed.)
+COPY beam/shims/beam-io-with-lzma-filesystem.py /usr/local/lib/python3.10/site-packages/apache_beam/io/filesystem.py
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=100 \
+    POETRY_HOME="/etc/poetry" \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VERSION=1.3.2
+
+ENV POETRY_PATH="${POETRY_HOME}/bin/poetry"
+
+# https://python-poetry.org/docs/master/#installation
+RUN curl -sSL https://install.python-poetry.org | python3 -
+RUN cd /usr/local/bin && ln -s ${POETRY_PATH} && chmod +x ${POETRY_PATH}
+
+WORKDIR /efnlp
+
+COPY README.md LICENSE ./poetry.lock ./pyproject.toml ./
+RUN poetry config virtualenvs.create false \
+    && poetry install -vvv --no-dev --no-root
+
+COPY proto/efnlp.proto ./proto/efnlp.proto
+COPY efnlp ./efnlp
+COPY --from=builder /efnlp/target ./target
+RUN pip install target/wheels/efnlp* && rm -rf ./target
+
+ENTRYPOINT ["/opt/apache/beam/boot"]

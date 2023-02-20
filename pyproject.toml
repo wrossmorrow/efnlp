@@ -1,6 +1,6 @@
 [project]
 name = "efnlp"
-version = "0.2.2"
+version = "0.2.3"
 description = "Empirical Frequency Natural Language Processing"
 authors = [{name = "W. Ross Morrow", email = "morrowwr@gmail.com"}]
 requires-python = ">=3.9"
@@ -18,7 +18,7 @@ build-backend = "maturin"
 
 [tool.poetry]
 name = "efnlp"
-version = "0.2.2"
+version = "0.2.3"
 description = "Empirical Frequency Natural Language Processing"
 readme = "README.md"
 packages = [{ include = "efnlp" }]

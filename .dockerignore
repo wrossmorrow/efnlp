@@ -6,7 +6,7 @@
 !proto/*.proto
 !efnlp/*.py
 !src
-!Cargo.toml
+!Cargo.*
 !pyproject.toml
 !poetry.lock
 !README.md

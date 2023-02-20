@@ -1,7 +1,9 @@
 import argparse
 import logging
 import re
+import sys
 
+from base64 import b64encode
 from typing import Dict, Generator, List, Optional, Tuple
 
 import apache_beam as beam
@@ -24,11 +26,62 @@ class EFNLPParser(beam.DoFn):
     def process(self, record: Dict) -> Generator[Tuple[int, bytes], None, None]:
         import _efnlp
 
-        encoded = record["encoded"]  # List[int]
-        parser = _efnlp.EFNLP()
-        parser.parse_all(encoded, self.block_size)
+        encoded = record["encoded"]  # List[int], actually rather inflated over text in python
+        parser = _efnlp.EFNLP() # a parser object
+        parser.parse_all(encoded, self.block_size, False) # False means make "sparse" trees
+
+        # NOTES: 
+        # 
+        # * don't parse "dense" trees, "sparse" ones are faster and smaller
+        # * serialization takes as long as parsing... improve? parse-to-serialized?
+        # * emitting "serialized trees" will result in very high fan out (like 1000x)
+        #   we could just emit the sets, but at _some_ point this will be too large 
+        #   to store/merge
+        # * the longest text is _not_ the longest (or slowest) to parse
+        # * how long does the longest take? 0.21s, but the longest parse is maybe 0.5s
+        # * how large is the longest serialized? about 6MB, but largest is about 11MB
+        # * compressing (in python) takes even longer, like 1s per serialized treeset, 
+        #   though reduces serialized size significantly (maybe 5x)
+        # * compressing in rust is not unreasonable; def faster than python and good
+        #   space savings...
+        # 
+
         for t, tree_pb in parser.serialized_trees():
             yield (t, tree_pb)
+
+
+class EFNLPParserSetOnly(beam.DoFn):
+    def __init__(self, block_size: int = 10) -> None:
+        self.block_size = block_size
+        self.logger = logging.getLogger()
+        self.tok_size = sys.getsizeof(int())
+
+    def process(self, record: Dict) -> Generator[Dict[str, str], None, None]:
+        import _efnlp
+        from time import time
+        from base64 import b64encode
+
+        encoded = record["encoded"]  # List[int], actually rather inflated over text in python
+
+        result = {"id": record["id"], "in_bytes": str(int(len(encoded) * self.tok_size))}
+
+        try: 
+            started = time()
+            parser = _efnlp.EFNLP() # a parser object
+            parser.parse_all(encoded, self.block_size, False) # False means make "sparse" trees
+            result["parse_time_s"] = f"{time() - started:0.9}"
+
+            started = time()
+            b = parser.serialize(True) # True means compressed (in the rust lib)
+            result["serde_time_s"] = f"{time() - started:0.9}"
+
+            result["tree"] = b64encode(b).decode()
+            result["out_bytes"] = str(len(b))
+
+            yield result
+
+        except Exception as err:
+            self.logger.error(f"ERROR {err.__class__.__name__} {err}")
 
 
 class EFNLPSuffixTreeMerge(beam.CombineFn):
@@ -149,7 +202,8 @@ def cli() -> argparse.ArgumentParser:
         "-o",
         "--output",
         type=str,
-        default="gs://efnlp-private/models/enwiki20201020/gpt2",
+        default="efnlp-naivegpt:enwiki20201020.gpt2_trees",
+        # default="gs://efnlp-private/models/enwiki20201020/gpt2",
         help="Output BQ table",
     )
 
@@ -206,20 +260,16 @@ def run() -> None:
     #   dataflow_service_options=['enable_prime']
     #
 
-    match = re.match(r"^gs://([^/]+)/(.*)", args.output)
-    if not match:
-        raise ValueError(f"output is not a GCS location ({args.output})")
-    out_bucket = match.group(1)
-    out_prefix = match.group(2)
+    # match = re.match(r"^gs://([^/]+)/(.*)", args.output)
+    # if not match:
+    #     raise ValueError(f"output is not a GCS location ({args.output})")
+    # out_bucket = match.group(1)
+    # out_prefix = match.group(2)
 
     with beam.Pipeline(options=beam_options) as p:
 
-        # Note: write trees to GCS, in files "partitioned" by token (i.e., not
-        # traditionally sharded by desired file size alone)
-        stats = (
-            p
-            | "read from BigQuery"
-            >> (
+        data = (
+            p | "read from BigQuery" >> (
                 ReadFromBigQuery(
                     query=f"SELECT * FROM [{args.input}] LIMIT 10",
                     flatten_results=False,
@@ -232,28 +282,69 @@ def run() -> None:
                 )
             )
             | "break fusion" >> beam.Reshuffle()
-            | "parse segments" >> beam.ParDo(EFNLPParser(args.block_size))
-            | "merge by token" >> beam.CombinePerKey(EFNLPSuffixTreeMerge())
-            | "write out" >> beam.ParDo(CustomGCSWriter(out_bucket, out_prefix))
         )
 
-        # write statistics of output to BigQuery
-        if args.stats_out:
-            stats | "write stats" >> WriteToBigQuery(
-                table=args.stats_out,
+        # Note: write trees to GCS, in files "partitioned" by token (i.e., not
+        # traditionally sharded by desired file size alone)
+        done = (
+            data | "parse trees" >> beam.ParDo(EFNLPParserSetOnly(args.block_size))
+            | "output trees" >> WriteToBigQuery(  # noqa: F841
+                table=args.output,
                 schema={
-                    "fields": [
-                        {"name": "token", "type": "INTEGER", "mode": "NULLABLE"},
-                        {"name": "location", "type": "STRING", "mode": "NULLABLE"},
-                        {"name": "rawbytes", "type": "INTEGER", "mode": "NULLABLE"},
-                        {"name": "written", "type": "INTEGER", "mode": "NULLABLE"},
-                    ]
+                    'fields': [{
+                        'name': 'id', 
+                        'type': 'STRING', 
+                        'mode': 'NULLABLE',
+                    }, {
+                        'name': 'in_bytes', 
+                        'type': 'INTEGER', 
+                        'mode': 'NULLABLE',
+                    }, {
+                        'name': 'out_bytes', 
+                        'type': 'INTEGER', 
+                        'mode': 'NULLABLE',
+                    }, {
+                        'name': 'parse_time_s', 
+                        'type': 'FLOAT64', 
+                        'mode': 'NULLABLE',
+                    }, {
+                        'name': 'serde_time_s', 
+                        'type': 'FLOAT64', 
+                        'mode': 'NULLABLE',
+                    }, {
+                        'name': 'tree', 
+                        'type': 'STRING', 
+                        'mode': 'NULLABLE',
+                    }]
                 },
                 create_disposition=BigQueryDisposition.CREATE_NEVER,
                 write_disposition=BigQueryDisposition.WRITE_TRUNCATE,
             )
+        )
 
-        # Run the pipeline (all operations are deferred until run() is called).
+        # # Note: write trees to GCS, in files "partitioned" by token (i.e., not
+        # # traditionally sharded by desired file size alone)
+        # stats = (
+        #     data | "parse segments" >> beam.ParDo(EFNLPParser(args.block_size))
+        #     | "merge by token" >> beam.CombinePerKey(EFNLPSuffixTreeMerge())
+        #     | "write out" >> beam.ParDo(CustomGCSWriter(out_bucket, out_prefix))
+        # )
+
+        # # write statistics of output to BigQuery
+        # if args.stats_out:
+        #     stats | "write stats" >> WriteToBigQuery(
+        #         table=args.stats_out,
+        #         schema={
+        #             "fields": [
+        #                 {"name": "token", "type": "INTEGER", "mode": "NULLABLE"},
+        #                 {"name": "location", "type": "STRING", "mode": "NULLABLE"},
+        #                 {"name": "rawbytes", "type": "INTEGER", "mode": "NULLABLE"},
+        #                 {"name": "written", "type": "INTEGER", "mode": "NULLABLE"},
+        #             ]
+        #         },
+        #         create_disposition=BigQueryDisposition.CREATE_NEVER,
+        #         write_disposition=BigQueryDisposition.WRITE_TRUNCATE,
+        #     )
 
 
 if __name__ == "__main__":

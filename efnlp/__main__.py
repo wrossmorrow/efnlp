@@ -2,6 +2,8 @@ import argparse
 
 from datetime import datetime as dt
 
+import _efnlp
+
 from . import Language, SuffixTreeSet
 
 header = """
@@ -144,7 +146,8 @@ if __name__ == "__main__":
     _print = TimedPrinter()
 
     if args.language:
-        L = Language.from_proto_file(args.language)
+        # L = Language.from_proto_file(args.language)
+        L = Language.from_json_file(args.language)
         print(L)
     else:
         raise ValueError("language is required (for now)")
@@ -185,19 +188,22 @@ if __name__ == "__main__":
         _print("Parsing prefix/successor tokens")
 
     ps = dt.now()
-    S = SuffixTreeSet().parse_all(encoded, B)
-    # for i in range(B, N - 1):
-    #     S.parse(C[i - B : i], C[i])
+    S = _efnlp.EFNLP()
+    S.parse_all(encoded, B, False)
+    # S = SuffixTreeSet().parse_all(encoded, B)
     pt = (dt.now() - ps).total_seconds() * 1000
 
     if args.verbose and args.stats:
         _print(f"Parsed prefixes and successors in corpus in {pt:0.2f}ms")
-        prefix_count = len(S.prefixes())
+        # prefix_count = len(S.prefixes())
+        prefix_count = S.count_prefixes()
         pop = 100.0 * prefix_count / (N - B - 1)  # exclude last element
         _print(f"Found {prefix_count:,} prefixes ({pop:.1f}% of possible)")
-        pattern_count = len(S.patterns())
+        # pattern_count = len(S.patterns())
+        pattern_count = S.count_patterns()
         pop = 100.0 * pattern_count / (N - B - 1)  # exclude last element
         _print(f"Found {pattern_count:,} patterns ({pop:.1f}% of possible)")
+        _print(f"Roughly {pattern_count/prefix_count} patterns/prefix")
 
     if args.verbose and args.memory:
         mem = S.memory()
@@ -209,10 +215,11 @@ if __name__ == "__main__":
         )
 
     if Cv:
-
         raise NotImplementedError("Still working on validation strategy")
 
     if G > 0:
+
+        S.densify()
 
         if args.verbose:
             _print(f"Sampling and decoding {G} tokens")
