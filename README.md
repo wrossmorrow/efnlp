@@ -71,18 +71,18 @@ More comprehensive results are detailed in the following tables (see `paper/*.pd
 
 What follows are comparative parsing/generation speeds (for sampling 1M tokens):
 
-|  B  | py parse | py t/&tau; | go parse | go t/&tau; | c++ parse | c++ t/&tau; |
-| --- | ------ | --------- | ----- | -------- | ----- | -------- |
-|  1  | 1.0s   |  1.4&mu;s |  49ms | 0.1&mu;s | 131ms | 0.1&mu;s |
-|  2  | 2.0s   |  1.7&mu;s | 109ms | 0.1&mu;s | 248ms | 0.2&mu;s |
-|  3  | 3.3s   |  2.1&mu;s | 222ms | 0.2&mu;s | 419ms | 0.3&mu;s |
-|  4  | 4.3s   |  2.6&mu;s | 361ms | 0.3&mu;s | 612ms | 0.4&mu;s |
-|  5  | 6.4s   |  3.2&mu;s | 585ms | 0.5&mu;s |  1.1s | 0.5&mu;s |
-|  7  | 12.0s  |  4.9&mu;s |  1.2s | 0.7&mu;s |  2.0s | 0.7&mu;s |
-| 10  | 28.0s  |  7.0&mu;s |  2.6s | 0.9&mu;s |  1.9s | 0.8&mu;s |
-| 12  | 37.3s  |  8.3&mu;s |  4.1s | 1.1&mu;s |  2.5s | 1.0&mu;s |
-| 15  | 54.3s  |  9.7&mu;s |  5.2s | 1.2&mu;s |  3.2s | 1.0&mu;s |
-| 20  | 129.0s | 12.7&mu;s |  8.4s | 1.6&mu;s |  4.4s | 1.3&mu;s |
+|  B  | py parse | py t/&tau; | rust parse | rust t/&tau; | go parse | go t/&tau; | c++ parse | c++ t/&tau; |
+| --- | ------ | --------- | ----- | -------- | ----- | -------- | ----- | -------- |
+|  1  | 1.0s   |  1.4&mu;s | 110ms | 0.2&mu;s |  49ms | 0.1&mu;s | 131ms | 0.1&mu;s |
+|  2  | 2.0s   |  1.7&mu;s | 164ms | 0.2&mu;s | 109ms | 0.1&mu;s | 248ms | 0.2&mu;s |
+|  3  | 3.3s   |  2.1&mu;s | 260ms | 0.2&mu;s | 222ms | 0.2&mu;s | 419ms | 0.3&mu;s |
+|  4  | 4.3s   |  2.6&mu;s | 441ms | 0.3&mu;s | 361ms | 0.3&mu;s | 612ms | 0.4&mu;s |
+|  5  | 6.4s   |  3.2&mu;s | 743ms | 0.5&mu;s | 585ms | 0.5&mu;s |  1.1s | 0.5&mu;s |
+|  7  | 12.0s  |  4.9&mu;s |  1.6s | 0.9&mu;s |  1.2s | 0.7&mu;s |  2.0s | 0.7&mu;s |
+| 10  | 28.0s  |  7.0&mu;s |  3.1s | 1.5&mu;s |  2.6s | 0.9&mu;s |  1.9s | 0.8&mu;s |
+| 12  | 37.3s  |  8.3&mu;s |  3.9s | 1.8&mu;s |  4.1s | 1.1&mu;s |  2.5s | 1.0&mu;s |
+| 15  | 54.3s  |  9.7&mu;s |  5.9s | 2.2&mu;s |  5.2s | 1.2&mu;s |  3.2s | 1.0&mu;s |
+| 20  | 129.0s | 12.7&mu;s |  8.5s | 2.7&mu;s |  8.4s | 1.6&mu;s |  4.4s | 1.3&mu;s |
 
 
 Note (until we get better formatting) that the repeated "parse" (parse time) and "t/&tau;" (time per token) columns are for `python`, `go`, and `c++` respectively. With each we can generate text at O(&mu;s)/token. However compiled codes (`go` and `c++`) are faster (roughly by an order of magnitude) and seem to scale a bit better with longer sequences. With compiled code we can parse out the (C)EFs in shakespeare in seconds; while `python` is still "reasonable" it takes a couple minutes to parse 20-token sequences. 
